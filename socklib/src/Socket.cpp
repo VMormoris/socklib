@@ -180,6 +180,20 @@ int Socket::Receive(void* data, unsigned int length, unsigned int offset) const 
 	return bytes;
 }
 
+void Socket::GetName(sockaddr_in& address) const noexcept
+{
+	socklen_t size = sizeof(sockaddr_in);
+	int result = getsockname(*m_SockRef, (sockaddr*)&address, &size);
+	ASSERT(result != INVALID_SOCKET, GetError().c_str());
+}
+
+void Socket::GetName(sockaddr_in6& address) const noexcept
+{
+	socklen_t size = sizeof(sockaddr_in6);
+	int result = getsockname(*m_SockRef, (sockaddr*)&address, &size);
+	ASSERT(result != INVALID_SOCKET, GetError().c_str());
+}
+
 Socket::Socket(Socket&& other) noexcept
 	: Socket()
 {
@@ -224,6 +238,7 @@ void CreateAddress(const char* address, unsigned short port, sockaddr_in6& sockA
 	else
 		sockAddress.sin6_addr = in6addr_any;
 }
+
 
 // ************************************************************************
 // | Bellow From here the implementation differ depending on the Platform |

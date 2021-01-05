@@ -126,6 +126,8 @@ public:
 	*/
 	const Socket& GetSocket(void) const noexcept;
 
+	SOCKET GetNativeFD(void) const noexcept;
+
 
 	/**
 	* @brief Starts a new thread that will handle the Client's logic
@@ -147,9 +149,9 @@ public:
 		ASSERT(m_State == ThreadState::None, "Client has already a thread running!");
 		if constexpr (std::is_same<FUNC_ARG<Func>, Socket>::value)
 			m_Handle = std::thread(func, m_Sock);
-		else if(std::is_same<FUNC_ARG<Func>, SOCKET>::value)
+		else if constexpr (std::is_same<FUNC_ARG<Func>, SOCKET>::value)
 			m_Handle = std::thread(func, m_Sock.GetNativeFD());
-		else { ASSERT(false, "Function singature is not correct!"); return; }
+		else { ASSERT(false, "Function signature is not correct!"); }
 		if (detached)
 		{
 			m_State = ThreadState::Detached;

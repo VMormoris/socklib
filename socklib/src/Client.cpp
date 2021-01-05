@@ -63,6 +63,8 @@ void BasicClient::Shutdown(int how) noexcept { m_Sock.Shutdown(how); }
 
 Socket& BasicClient::GetSocket(void) noexcept { return m_Sock; }
 const Socket& BasicClient::GetSocket(void) const noexcept { return m_Sock; }
+SOCKET BasicClient::GetNativeFD(void) const noexcept { return m_Sock.GetNativeFD(); }
+
 
 namespace TCP {
 

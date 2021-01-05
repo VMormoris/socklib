@@ -183,13 +183,6 @@ TEST_CASE("Testing Bind()", "Socket")
 	}
 }
 
-TEST_CASE("Testing Listen()", "[Socket]")
-{
-	Socket sock(AF_INET, SOCK_STREAM);
-	sock.Bind();
-	sock.Listen();
-}
-
 TEST_CASE("Testing Accept()", "Socket")
 {
 	{//Accept without Address

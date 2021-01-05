@@ -233,6 +233,10 @@ public:
 	*/
 	SOCKET GetNativeFD(void) const noexcept { return *m_SockRef; }
 
+	void GetName(sockaddr_in& address) const noexcept;
+	void GetName(sockaddr_in6& address) const noexcept;
+
+
 	/**
 	* @brief Move assignement operation
 	* @details Close the current Socket if it is opened, and move the context from another one to it

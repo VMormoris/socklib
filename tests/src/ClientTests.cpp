@@ -11,7 +11,7 @@ TEST_CASE("Testing BasicClient's Default Construction", "[BasicClient]")
 	REQUIRE(client.m_State == BasicClient::ThreadState::None);
 }
 
-TEST_CASE("Testing Start()", "[BasicClient]")
+TEST_CASE("Testing Client's Start()", "[BasicClient]")
 {
 	{//Detached Thread & Socket
 		BasicClient client(AF_INET, SOCK_STREAM);
@@ -19,6 +19,7 @@ TEST_CASE("Testing Start()", "[BasicClient]")
 		client.Start([fd](Socket sock) {
 			REQUIRE(fd == sock.GetNativeFD());
 		}, true);
+		std::this_thread::sleep_for(std::chrono::milliseconds(10));//Make sure detached thread is being executed
 	}
 
 	{//Attached Thread & Socket
@@ -36,6 +37,7 @@ TEST_CASE("Testing Start()", "[BasicClient]")
 			REQUIRE(fd == sock);
 			closesocket(sock);
 		}, true);
+		std::this_thread::sleep_for(std::chrono::milliseconds(10));//Make sure detached thread is being executed
 	}
 
 	{//Attached Thread & SOCKET
