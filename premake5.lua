@@ -17,15 +17,20 @@ project "socklib"
 	location "socklib"
 	kind "StaticLib"
 	language "C++"
-	cppdialect "C++14"
+	cppdialect "C++17"
 
 	targetdir("bin/" .. outputdir .. "/%{prj.name}")
 	objdir("bin-int/" .. outputdir .. "/%{prj.name}")
 
 	files
 	{
-		"%{prj.name}/src/**.h",
-		"%{prj.name}/src/**.cpp"
+		"include/socklib/**.h",
+		"%{prj.name}/src/**.cpp",
+	}
+
+	includedirs
+	{
+		"include",
 	}
 
 	filter "configurations:Debug"
@@ -46,7 +51,7 @@ project "tests"
 	location "tests"
 	kind "ConsoleApp"
 	language "C++"
-	cppdialect "C++14"
+	cppdialect "C++17"
 
 	targetdir("bin/" .. outputdir .. "/%{prj.name}")
 	objdir("bin-int/" .. outputdir .. "/%{prj.name}")
@@ -60,7 +65,7 @@ project "tests"
 
 	includedirs
 	{
-		"socklib/src",
+		"include",
 		"%{IncludeDirs.catch}",
 	}
 

@@ -4,7 +4,7 @@
 
 #define private public
 #define protected public
-#include <Socket.h>
+#include <socklib/socket.h>
 
 TEST_CASE("Testing Default Contructor", "[Socket]")
 {
