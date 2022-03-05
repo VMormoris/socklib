@@ -68,7 +68,7 @@ An example of a Client that connect a send a message to the server above:
 
 int main(int argc, char** argv)
 {
-  constexpr char* msg = "Hello from socklib";
+  constexpr char msg[] = "Hello from socklib";
   char buffer[KiB];
   Socket sock(AF_INET, SOCK_STREAM, 0);
   sock.Connect("127.0.0.1", 55555);
