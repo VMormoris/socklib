@@ -109,21 +109,13 @@ TEST_CASE("Testing Bind()", "Socket")
 		sock.Bind(address);
 
 		sockaddr_in o_address = { 0 };
-
-	#ifdef PLATFORM_WINDOWS
-		int length = sizeof(sockaddr_in);
-	#else//Unix like platform
 		socklen_t length = sizeof(sockaddr_in);
-	#endif
+	
 
 		getsockname(sock.GetNativeFD(), (sockaddr*)&o_address, &length);
 		
 		REQUIRE(address.sin_port == o_address.sin_port);
-	#ifdef PLATFORM_WINDOWS
-		REQUIRE(address.sin_addr.S_un.S_addr == o_address.sin_addr.S_un.S_addr);
-	#else//Unix like platform
 		REQUIRE(address.sin_addr.s_addr == o_address.sin_addr.s_addr);
-	#endif
 	}
 
 	{//Binding using sockaddr_in6
@@ -136,22 +128,13 @@ TEST_CASE("Testing Bind()", "Socket")
 		sock.Bind(address);
 
 		sockaddr_in6 o_address = { 0 };
-		
-	#ifdef PLATFORM_WINDOWS
-		int length = sizeof(sockaddr_in6);
-	#else//Unix like platform
 		socklen_t length = sizeof(sockaddr_in6);
-	#endif
 
 		getsockname(sock.GetNativeFD(), (sockaddr*)&o_address, &length);
 		REQUIRE(address.sin6_port == o_address.sin6_port);
 		for (size_t i = 0; i < 16; i++)
 		{
-		#ifdef PLATFORM_WINDOWS
-			REQUIRE(address.sin6_addr.u.Byte[i] == o_address.sin6_addr.u.Byte[i]);
-		#else//Unix like platforms
 			REQUIRE(address.sin6_addr.s6_addr[i] == o_address.sin6_addr.s6_addr[i]);
-		#endif
 		}
 	}
 
@@ -165,21 +148,12 @@ TEST_CASE("Testing Bind()", "Socket")
 		inet_pton(AF_INET, "127.0.0.1", &address.sin_addr);
 
 		sockaddr_in o_address = { 0 };
-
-	#ifdef PLATFORM_WINDOWS
-			int length = sizeof(sockaddr_in);
-	#else//Unix like platform
-			socklen_t length = sizeof(sockaddr_in);
-	#endif
+		socklen_t length = sizeof(sockaddr_in);
 
 		getsockname(sock.GetNativeFD(), (sockaddr*)&o_address, &length);
 
 		REQUIRE(address.sin_port == o_address.sin_port);
-	#ifdef PLATFORM_WINDOWS
-		REQUIRE(address.sin_addr.S_un.S_addr == o_address.sin_addr.S_un.S_addr);
-	#else//Unix like platform
 		REQUIRE(address.sin_addr.s_addr == o_address.sin_addr.s_addr);
-	#endif
 	}
 }
 
@@ -236,11 +210,7 @@ TEST_CASE("Testing Accept()", "Socket")
 			REQUIRE(sock.m_AF == AF_INET);
 
 			REQUIRE(clientAddress.sin_port == address.sin_port);
-		#ifdef PLATFORM_WINDOWS
-			REQUIRE(clientAddress.sin_addr.S_un.S_addr == address.sin_addr.S_un.S_addr);
-		#else//Unix like platform
 			REQUIRE(clientAddress.sin_addr.s_addr == address.sin_addr.s_addr);
-		#endif
 		});
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(10));//Make sure the task starts before procceding
@@ -279,11 +249,7 @@ TEST_CASE("Testing Accept()", "Socket")
 			REQUIRE(clientAddress.sin6_port == address.sin6_port);
 			for (size_t i = 0; i < 16; i++)
 			{
-			#ifdef PLATFORM_WINDOWS
-				REQUIRE(clientAddress.sin6_addr.u.Byte[i] == address.sin6_addr.u.Byte[i]);
-			#else//Unix like platforms
 				REQUIRE(clientAddress.sin6_addr.s6_addr[i] == address.sin6_addr.s6_addr[i]);
-			#endif
 			}
 		});
 
@@ -491,11 +457,7 @@ TEST_CASE("Testing Datagram Transmition", "[Socket]")
 			REQUIRE(bytes == expected.size() + 1);
 			REQUIRE(expected.compare(buffer) == 0);
 			REQUIRE(address.sin_port == senderAddress.sin_port);
-		#ifdef PLATFORM_WINDOWS
-			REQUIRE(address.sin_addr.S_un.S_addr == senderAddress.sin_addr.S_un.S_addr);
-		#else//Unix like platform
 			REQUIRE(address.sin_addr.s_addr == senderAddress.sin_addr.s_addr);
-		#endif
 
 			address = { 0 };
 			bytes = sock.ReceiveFrom(buffer, address, 6, 6);
@@ -503,11 +465,7 @@ TEST_CASE("Testing Datagram Transmition", "[Socket]")
 			REQUIRE(bytes == expected.size() + 1);
 			REQUIRE(expected.compare(&buffer[6]));
 			REQUIRE(address.sin_port == senderAddress.sin_port);
-		#ifdef PLATFORM_WINDOWS
-			REQUIRE(address.sin_addr.S_un.S_addr == senderAddress.sin_addr.S_un.S_addr);
-		#else//Unix like platform
 			REQUIRE(address.sin_addr.s_addr == senderAddress.sin_addr.s_addr);
-		#endif
 		});
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(10));//Make sure the task starts before procceding
@@ -551,11 +509,7 @@ TEST_CASE("Testing Datagram Transmition", "[Socket]")
 			REQUIRE(address.sin6_port == senderAddress.sin6_port);
 			for (size_t i = 0; i < 16; i++)
 			{
-			#ifdef PLATFORM_WINDOWS
-				REQUIRE(address.sin6_addr.u.Byte[i] == senderAddress.sin6_addr.u.Byte[i]);
-			#else//Unix like platforms
 				REQUIRE(address.sin6_addr.s6_addr[i] == senderAddress.sin6_addr.s6_addr[i]);
-			#endif
 			}
 
 			address = { 0 };
@@ -566,11 +520,7 @@ TEST_CASE("Testing Datagram Transmition", "[Socket]")
 			REQUIRE(address.sin6_port == senderAddress.sin6_port);
 			for (size_t i = 0; i < 16; i++)
 			{
-			#ifdef PLATFORM_WINDOWS
-				REQUIRE(address.sin6_addr.u.Byte[i] == senderAddress.sin6_addr.u.Byte[i]);
-			#else//Unix like platforms
 				REQUIRE(address.sin6_addr.s6_addr[i] == senderAddress.sin6_addr.s6_addr[i]);
-			#endif
 			}
 		});
 
