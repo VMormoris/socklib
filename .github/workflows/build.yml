@@ -1,0 +1,33 @@
+name: build
+
+on: [push, pull_request]
+
+jobs:
+  windows:
+    name: windows-build-tests
+    runs-on: windows-latest
+
+    strategy:
+      matrix:
+        config: [Debug, Release]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Setup premake
+        uses: abel0b/setup-premake@v2
+        with:
+          version: "5.0.0-beta1"
+      
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v1.0.2
+      
+      - name: Create Solution file
+        run: premake5.exe vs2019
+      
+      - name: Build tests
+        run: msbuild /m /p:Configuration=${{matrix.config}} .
+
+      - name: Run tests
+        run: bin\\${{matrix.config}}-windows\\tests\\tests.exe

@@ -6,9 +6,6 @@
 #define protected public
 #include <socklib/socket.h>
 
-static unsigned short sServerPort = 55555;
-static unsigned short sClientPort = 44444;
-
 TEST_CASE("Testing Default Contructor", "[Socket]")
 {
 	Socket sock;
@@ -105,7 +102,7 @@ TEST_CASE("Testing Bind()", "Socket")
 	{//Binding using sockaddr_in
 		sockaddr_in address = { 0 };
 		address.sin_family = AF_INET;
-		address.sin_port = htons(++sServerPort);
+		address.sin_port = htons(55555);
 		inet_pton(AF_INET, "127.0.0.1", &address.sin_addr);
 		
 		Socket sock(AF_INET, SOCK_STREAM);
@@ -124,7 +121,7 @@ TEST_CASE("Testing Bind()", "Socket")
 	{//Binding using sockaddr_in6
 		sockaddr_in6 address = { 0 };
 		address.sin6_family = AF_INET6;
-		address.sin6_port = htons(++sServerPort);
+		address.sin6_port = htons(55555);
 		inet_pton(AF_INET, "::1", &address.sin6_addr);
 
 		Socket sock(AF_INET6, SOCK_DGRAM);
@@ -142,13 +139,12 @@ TEST_CASE("Testing Bind()", "Socket")
 	}
 
 	{//Binding using human readable pair of IP and port
-		const unsigned short serverPort = ++sServerPort;
 		Socket sock(AF_INET, SOCK_STREAM);
-		sock.Bind("127.0.0.1", serverPort);
+		sock.Bind("127.0.0.1", 55555);
 
 		sockaddr_in address = { 0 };
 		address.sin_family = AF_INET;
-		address.sin_port = htons(serverPort);
+		address.sin_port = htons(55555);
 		inet_pton(AF_INET, "127.0.0.1", &address.sin_addr);
 
 		sockaddr_in o_address = { 0 };
@@ -171,11 +167,10 @@ TEST_CASE("Testing Listen()", "[Socket]")
 TEST_CASE("Testing Accept()", "Socket")
 {
 	{//Accept without Address
-		const unsigned short serverPort = ++sServerPort;
-		auto task = std::async(std::launch::async, [serverPort]()
+		auto task = std::async(std::launch::async, []()
 		{
 			Socket sock(AF_INET, SOCK_STREAM);
-			sock.Bind("127.0.0.1", serverPort);
+			sock.Bind("127.0.0.1", 55555);
 			sock.Listen();
 			Socket client = sock.Accept();
 			REQUIRE(client.GetNativeFD() != INVALID_SOCKET);
@@ -188,7 +183,7 @@ TEST_CASE("Testing Accept()", "Socket")
 		
 		sockaddr_in address = { 0 };
 		address.sin_family = AF_INET;
-		address.sin_port = htons(serverPort);
+		address.sin_port = htons(55555);
 		inet_pton(AF_INET, "127.0.0.1", &address.sin_addr);
 
 		int result = connect(sock.GetNativeFD(), (sockaddr*)&address, sizeof(sockaddr_in));
@@ -198,17 +193,15 @@ TEST_CASE("Testing Accept()", "Socket")
 	}
 
 	{//Accept IPv4
-		const unsigned short serverPort = ++sServerPort;
-		const unsigned short clientPort = ++sClientPort;
 		sockaddr_in clientAddress = { 0 };
 		clientAddress.sin_family = AF_INET;
-		clientAddress.sin_port = htons(clientPort);
+		clientAddress.sin_port = htons(55556);
 		inet_pton(AF_INET, "127.0.0.1", &clientAddress.sin_addr);
 
-		auto task = std::async(std::launch::async, [clientAddress, serverPort]()
+		auto task = std::async(std::launch::async, [clientAddress]()
 		{
 			Socket sock(AF_INET, SOCK_STREAM);
-			sock.Bind("127.0.0.1", serverPort);
+			sock.Bind("127.0.0.1", 55555);
 			sock.Listen();
 			sockaddr_in address = { 0 };
 			Socket client = sock.Accept(address);
@@ -228,7 +221,7 @@ TEST_CASE("Testing Accept()", "Socket")
 
 		sockaddr_in address = { 0 };
 		address.sin_family = AF_INET;
-		address.sin_port = htons(serverPort);
+		address.sin_port = htons(55555);
 		inet_pton(AF_INET, "127.0.0.1", &address.sin_addr);
 
 		int result = connect(sock.GetNativeFD(), (sockaddr*)&address, sizeof(sockaddr_in));
@@ -238,16 +231,14 @@ TEST_CASE("Testing Accept()", "Socket")
 	}
 
 	{//Accept IPv6 
-		const unsigned short serverPort = ++sServerPort;
-		const unsigned short clientPort = ++sClientPort;
 		sockaddr_in6 clientAddress = { 0 };
 		clientAddress.sin6_family = AF_INET6;
-		clientAddress.sin6_port = htons(clientPort);
+		clientAddress.sin6_port = htons(55556);
 		inet_pton(AF_INET6, "::1", &clientAddress.sin6_addr);
-		auto task = std::async(std::launch::async, [clientAddress, serverPort]()
+		auto task = std::async(std::launch::async, [clientAddress]()
 		{
 			Socket sock(AF_INET6, SOCK_STREAM);
-			sock.Bind("::1", serverPort);
+			sock.Bind("::1", 55555);
 			sock.Listen();
 			sockaddr_in6 address = { 0 };
 			Socket client = sock.Accept(address);
@@ -269,7 +260,7 @@ TEST_CASE("Testing Accept()", "Socket")
 
 		sockaddr_in6 address = { 0 };
 		address.sin6_family = AF_INET6;
-		address.sin6_port = htons(serverPort);
+		address.sin6_port = htons(55555);
 		inet_pton(AF_INET6, "::1", &address.sin6_addr);
 
 		int result = connect(sock.GetNativeFD(), (sockaddr*)&address, sizeof(sockaddr_in6));
@@ -282,11 +273,10 @@ TEST_CASE("Testing Accept()", "Socket")
 TEST_CASE("Testing Connect()", "[Socket]")
 {
 	{//Connect using sockaddr_in
-		const unsigned short serverPort = ++sServerPort;
-		auto task = std::async(std::launch::async, [serverPort]()
+		auto task = std::async(std::launch::async, []()
 		{
 			Socket sock(AF_INET, SOCK_STREAM);
-			sock.Bind("127.0.0.1", serverPort);
+			sock.Bind("127.0.0.1", 55555);
 			sock.Listen();
 			Socket client = sock.Accept();
 			REQUIRE(client.GetNativeFD() != INVALID_SOCKET);
@@ -298,7 +288,7 @@ TEST_CASE("Testing Connect()", "[Socket]")
 
 		sockaddr_in address = { 0 };
 		address.sin_family = AF_INET;
-		address.sin_port = htons(serverPort);
+		address.sin_port = htons(55555);
 		inet_pton(AF_INET, "127.0.0.1", &address.sin_addr);
 		client.Connect(address);
 
@@ -306,11 +296,11 @@ TEST_CASE("Testing Connect()", "[Socket]")
 	}
 
 	{//Connect using sockaddr_in6
-		const unsigned short serverPort = ++sServerPort;
-		auto task = std::async(std::launch::async, [serverPort]()
+		
+		auto task = std::async(std::launch::async, []()
 		{
 			Socket sock(AF_INET6, SOCK_STREAM);
-			sock.Bind("::1", serverPort);
+			sock.Bind("::1", 55555);
 			sock.Listen();
 			Socket client = sock.Accept();
 			REQUIRE(client.GetNativeFD() != INVALID_SOCKET);
@@ -322,7 +312,7 @@ TEST_CASE("Testing Connect()", "[Socket]")
 
 		sockaddr_in6 address = { 0 };
 		address.sin6_family = AF_INET6;
-		address.sin6_port = htons(serverPort);
+		address.sin6_port = htons(55555);
 		inet_pton(AF_INET6, "::1", &address.sin6_addr);
 
 		client.Connect(address);
@@ -331,11 +321,10 @@ TEST_CASE("Testing Connect()", "[Socket]")
 	}
 
 	{//Connect using the python way (IPv4)
-		const unsigned short serverPort = ++sServerPort;
-		auto task = std::async(std::launch::async, [serverPort]()
+		auto task = std::async(std::launch::async, []()
 		{
 			Socket sock(AF_INET, SOCK_STREAM);
-			sock.Bind("127.0.0.1", serverPort);
+			sock.Bind("127.0.0.1", 55555);
 			sock.Listen();
 			Socket client = sock.Accept();
 			REQUIRE(client.GetNativeFD() != INVALID_SOCKET);
@@ -344,17 +333,16 @@ TEST_CASE("Testing Connect()", "[Socket]")
 		std::this_thread::sleep_for(std::chrono::milliseconds(10));//Make sure the task starts before procceding
 
 		Socket client(AF_INET, SOCK_STREAM);
-		client.Connect("127.0.0.1", serverPort);
+		client.Connect("127.0.0.1", 55555);
 
 		task.wait();
 	}
 
 	{//Connect using the python way (IPv6)
-		const unsigned short serverPort = ++sServerPort;
-		auto task = std::async(std::launch::async, [serverPort]()
+		auto task = std::async(std::launch::async, []()
 		{
 			Socket sock(AF_INET6, SOCK_STREAM);
-			sock.Bind("::1", serverPort);
+			sock.Bind("::1", 55555);
 			sock.Listen();
 			Socket client = sock.Accept();
 			REQUIRE(client.GetNativeFD() != INVALID_SOCKET);
@@ -363,7 +351,7 @@ TEST_CASE("Testing Connect()", "[Socket]")
 		std::this_thread::sleep_for(std::chrono::milliseconds(10));//Make sure the task starts before procceding
 
 		Socket client(AF_INET6, SOCK_STREAM);
-		client.Connect("::1", serverPort);
+		client.Connect("::1", 55555);
 
 		task.wait();
 	}
@@ -373,11 +361,10 @@ TEST_CASE("Testing Stream Transmition", "[Socket]")
 {
 
 	{//IPv4
-		const unsigned short serverPort = ++sServerPort;
-		auto task = std::async(std::launch::async, [serverPort]()
+		auto task = std::async(std::launch::async, []()
 		{
 			Socket server(AF_INET, SOCK_STREAM);
-			server.Bind("127.0.0.1", serverPort);
+			server.Bind("127.0.0.1", 55555);
 			server.Listen();
 			Socket client = server.Accept();
 
@@ -400,7 +387,7 @@ TEST_CASE("Testing Stream Transmition", "[Socket]")
 		constexpr char str[12] = "Hello\0Wolrd";
 
 		Socket client(AF_INET, SOCK_STREAM);
-		client.Connect("127.0.0.1", serverPort);
+		client.Connect("127.0.0.1", 55555);
 		
 		int bytes = client.Send(str, 6);
 		REQUIRE(bytes == 6);
@@ -411,11 +398,10 @@ TEST_CASE("Testing Stream Transmition", "[Socket]")
 	}
 
 	{//IPv6
-		const unsigned short serverPort = ++sServerPort;
-		auto task = std::async(std::launch::async, [serverPort]()
+		auto task = std::async(std::launch::async, []()
 		{
 			Socket server(AF_INET6, SOCK_STREAM);
-			server.Bind("::1", serverPort);
+			server.Bind("::1", 55555);
 			server.Listen();
 			Socket client = server.Accept();
 
@@ -438,7 +424,7 @@ TEST_CASE("Testing Stream Transmition", "[Socket]")
 		constexpr char str[12] = "Hello\0Wolrd";
 
 		Socket client(AF_INET6, SOCK_STREAM);
-		client.Connect("::1", serverPort);
+		client.Connect("::1", 55555);
 
 		int bytes = client.Send(str, 6);
 		REQUIRE(bytes == 6);
@@ -453,17 +439,15 @@ TEST_CASE("Testing Datagram Transmition", "[Socket]")
 {
 
 	{//IPv4
-		const unsigned short serverPort = ++sServerPort;
-		const unsigned short clientPort = ++sClientPort;
 		sockaddr_in senderAddress = { 0 };
 		senderAddress.sin_family = AF_INET;
-		senderAddress.sin_port = htons(clientPort);
+		senderAddress.sin_port = htons(55556);
 		inet_pton(AF_INET, "127.0.0.1", &senderAddress.sin_addr);
 
 		auto task = std::async(std::launch::async, [=]()
 		{
 			Socket sock(AF_INET, SOCK_DGRAM);
-			sock.Bind("127.0.0.1", serverPort);
+			sock.Bind("127.0.0.1", 55555);
 
 			char buffer[12];
 
@@ -493,7 +477,7 @@ TEST_CASE("Testing Datagram Transmition", "[Socket]")
 
 		sockaddr_in recverAddress = { 0 };
 		recverAddress.sin_family = AF_INET;
-		recverAddress.sin_port = htons(serverPort);
+		recverAddress.sin_port = htons(55555);
 		inet_pton(AF_INET, "127.0.0.1", &recverAddress.sin_addr);
 		
 		int bytes = sock.SendTo(str, recverAddress, 6);
@@ -505,17 +489,15 @@ TEST_CASE("Testing Datagram Transmition", "[Socket]")
 	}
 
 	{//IPv6
-		const unsigned short serverPort = ++sServerPort;
-		const unsigned short clientPort = ++sClientPort;
 		sockaddr_in6 senderAddress = { 0 };
 		senderAddress.sin6_family = AF_INET6;
-		senderAddress.sin6_port = htons(clientPort);
+		senderAddress.sin6_port = htons(55556);
 		inet_pton(AF_INET6, "::1", &senderAddress.sin6_addr);
 
 		auto task = std::async(std::launch::async, [=]()
 		{
 			Socket sock(AF_INET6, SOCK_DGRAM);
-			sock.Bind("::1", serverPort);
+			sock.Bind("::1", 55555);
 
 			char buffer[12];
 
@@ -551,7 +533,7 @@ TEST_CASE("Testing Datagram Transmition", "[Socket]")
 
 		sockaddr_in6 recverAddress = { 0 };
 		recverAddress.sin6_family = AF_INET6;
-		recverAddress.sin6_port = htons(serverPort);
+		recverAddress.sin6_port = htons(55555);
 		inet_pton(AF_INET6, "::1", &recverAddress.sin6_addr);
 
 		int bytes = sock.SendTo(str, recverAddress, 6);
