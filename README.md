@@ -1,5 +1,5 @@
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![build](https://github.com/VMormoris/socklib/actions/workflows/build.yml/badge.svg)](https://github.com/VMormoris/socklib/actions/workflows/build.yml)
 <br>
 
 ```socklib``` is an open source C++ library that aims to provide a Platform agnostic Python-Like Socket object.
