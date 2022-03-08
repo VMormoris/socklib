@@ -106,7 +106,7 @@ TEST_CASE("Testing Bind()", "Socket")
 		inet_pton(AF_INET, "127.0.0.1", &address.sin_addr);
 		
 		Socket sock(AF_INET, SOCK_STREAM);
-		sock.Bind(address);
+		sock.Bind((sockaddr*)&address, sizeof(sockaddr_in));
 
 		sockaddr_in o_address = { 0 };
 		socklen_t length = sizeof(sockaddr_in);
@@ -125,7 +125,7 @@ TEST_CASE("Testing Bind()", "Socket")
 		inet_pton(AF_INET, "::1", &address.sin6_addr);
 
 		Socket sock(AF_INET6, SOCK_DGRAM);
-		sock.Bind(address);
+		sock.Bind((sockaddr*)&address, sizeof(sockaddr_in6));
 
 		sockaddr_in6 o_address = { 0 };
 		socklen_t length = sizeof(sockaddr_in6);
@@ -204,7 +204,8 @@ TEST_CASE("Testing Accept()", "Socket")
 			sock.Bind("127.0.0.1", 55555);
 			sock.Listen();
 			sockaddr_in address = { 0 };
-			Socket client = sock.Accept(address);
+			socklen_t addressSize = sizeof(sockaddr_in);
+			Socket client = sock.Accept((sockaddr*)&address, &addressSize);
 
 			REQUIRE(client.GetNativeFD() != INVALID_SOCKET);
 			REQUIRE(sock.m_AF == AF_INET);
@@ -217,7 +218,7 @@ TEST_CASE("Testing Accept()", "Socket")
 
 
 		Socket sock(AF_INET, SOCK_STREAM);
-		sock.Bind(clientAddress);
+		sock.Bind((sockaddr*)&clientAddress, sizeof(sockaddr_in));
 
 		sockaddr_in address = { 0 };
 		address.sin_family = AF_INET;
@@ -241,7 +242,8 @@ TEST_CASE("Testing Accept()", "Socket")
 			sock.Bind("::1", 55555);
 			sock.Listen();
 			sockaddr_in6 address = { 0 };
-			Socket client = sock.Accept(address);
+			socklen_t addressSize = sizeof(sockaddr_in6);
+			Socket client = sock.Accept((sockaddr*)&address, &addressSize);
 
 			REQUIRE(client.GetNativeFD() != INVALID_SOCKET);
 			REQUIRE(sock.m_AF == AF_INET6);
@@ -256,7 +258,7 @@ TEST_CASE("Testing Accept()", "Socket")
 		std::this_thread::sleep_for(std::chrono::milliseconds(10));//Make sure the task starts before procceding
 
 		Socket sock(AF_INET6, SOCK_STREAM);
-		sock.Bind(clientAddress);
+		sock.Bind((sockaddr*)&clientAddress, sizeof(sockaddr_in6));
 
 		sockaddr_in6 address = { 0 };
 		address.sin6_family = AF_INET6;
@@ -290,7 +292,7 @@ TEST_CASE("Testing Connect()", "[Socket]")
 		address.sin_family = AF_INET;
 		address.sin_port = htons(55555);
 		inet_pton(AF_INET, "127.0.0.1", &address.sin_addr);
-		client.Connect(address);
+		client.Connect((sockaddr*)&address, sizeof(sockaddr_in));
 
 		task.wait();
 	}
@@ -315,7 +317,7 @@ TEST_CASE("Testing Connect()", "[Socket]")
 		address.sin6_port = htons(55555);
 		inet_pton(AF_INET6, "::1", &address.sin6_addr);
 
-		client.Connect(address);
+		client.Connect((sockaddr*)&address, sizeof(sockaddr_in6));
 
 		task.wait();
 	}
@@ -452,7 +454,8 @@ TEST_CASE("Testing Datagram Transmition", "[Socket]")
 			char buffer[12];
 
 			sockaddr_in address = { 0 };
-			int bytes = sock.ReceiveFrom(buffer, address, 6);
+			socklen_t addressSize = sizeof(sockaddr_in);
+			int bytes = sock.ReceiveFrom(buffer, (sockaddr*)&address, &addressSize, 6);
 			std::string expected = "Hello";
 			REQUIRE(bytes == expected.size() + 1);
 			REQUIRE(expected.compare(buffer) == 0);
@@ -460,7 +463,7 @@ TEST_CASE("Testing Datagram Transmition", "[Socket]")
 			REQUIRE(address.sin_addr.s_addr == senderAddress.sin_addr.s_addr);
 
 			address = { 0 };
-			bytes = sock.ReceiveFrom(buffer, address, 6, 6);
+			bytes = sock.ReceiveFrom(buffer, (sockaddr*)&address, &addressSize, 6, 6);
 			expected = "World";
 			REQUIRE(bytes == expected.size() + 1);
 			REQUIRE(expected.compare(&buffer[6]));
@@ -473,16 +476,16 @@ TEST_CASE("Testing Datagram Transmition", "[Socket]")
 		constexpr char str[12] = "Hello\0Wolrd";
 
 		Socket sock(AF_INET, SOCK_DGRAM);
-		sock.Bind(senderAddress);
+		sock.Bind((sockaddr*)&senderAddress, sizeof(sockaddr_in6));
 
 		sockaddr_in recverAddress = { 0 };
 		recverAddress.sin_family = AF_INET;
 		recverAddress.sin_port = htons(55555);
 		inet_pton(AF_INET, "127.0.0.1", &recverAddress.sin_addr);
-		
-		int bytes = sock.SendTo(str, recverAddress, 6);
+				
+		int bytes = sock.SendTo(str, (sockaddr*)&recverAddress, sizeof(sockaddr_in), 6);
 		REQUIRE(bytes == 6);
-		bytes = sock.SendTo(str, recverAddress, 6, 6);
+		bytes = sock.SendTo(str, (sockaddr*)&recverAddress, sizeof(sockaddr_in), 6, 6);
 		REQUIRE(bytes == 6);
 
 		task.wait();
@@ -502,7 +505,8 @@ TEST_CASE("Testing Datagram Transmition", "[Socket]")
 			char buffer[12];
 
 			sockaddr_in6 address = { 0 };
-			int bytes = sock.ReceiveFrom(buffer, address, 6);
+			socklen_t addressSize = sizeof(sockaddr_in6);
+			int bytes = sock.ReceiveFrom(buffer, (sockaddr*)&address, &addressSize, 6);
 			std::string expected = "Hello";
 			REQUIRE(bytes == expected.size() + 1);
 			REQUIRE(expected.compare(buffer) == 0);
@@ -513,7 +517,7 @@ TEST_CASE("Testing Datagram Transmition", "[Socket]")
 			}
 
 			address = { 0 };
-			bytes = sock.ReceiveFrom(buffer, address, 6, 6);
+			bytes = sock.ReceiveFrom(buffer, (sockaddr*)&address, &addressSize, 6, 6);
 			expected = "World";
 			REQUIRE(bytes == expected.size() + 1);
 			REQUIRE(expected.compare(&buffer[6]));
@@ -529,16 +533,16 @@ TEST_CASE("Testing Datagram Transmition", "[Socket]")
 		constexpr char str[12] = "Hello\0Wolrd";
 
 		Socket sock(AF_INET6, SOCK_DGRAM);
-		sock.Bind(senderAddress);
+		sock.Bind((sockaddr*)&senderAddress, sizeof(sockaddr_in6));
 
 		sockaddr_in6 recverAddress = { 0 };
 		recverAddress.sin6_family = AF_INET6;
 		recverAddress.sin6_port = htons(55555);
 		inet_pton(AF_INET6, "::1", &recverAddress.sin6_addr);
 
-		int bytes = sock.SendTo(str, recverAddress, 6);
+		int bytes = sock.SendTo(str, (sockaddr*)&recverAddress, sizeof(sockaddr_in6), 6);
 		REQUIRE(bytes == 6);
-		bytes = sock.SendTo(str, recverAddress, 6, 6);
+		bytes = sock.SendTo(str, (sockaddr*)&recverAddress, sizeof(sockaddr_in6), 6, 6);
 		REQUIRE(bytes == 6);
 
 		task.wait();

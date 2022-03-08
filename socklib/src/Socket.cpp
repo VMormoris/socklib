@@ -30,14 +30,14 @@ void Socket::Bind(const char* address, unsigned short port) noexcept
 	{
 		sockaddr_in sock_address = { 0 };
 		CreateAddress(address, port, sock_address);
-		Bind(sock_address);
+		Bind((sockaddr*)&sock_address, sizeof(sockaddr_in));
 		break;
 	}
 	case AF_INET6:
 	{
 		sockaddr_in6 sock_address = { 0 };
 		CreateAddress(address, port, sock_address);
-		Bind(sock_address);
+		Bind((sockaddr*)&sock_address, sizeof(sockaddr_in6));
 		break;
 	}
 	default:
@@ -46,17 +46,10 @@ void Socket::Bind(const char* address, unsigned short port) noexcept
 	}
 }
 
-void Socket::Bind(const sockaddr_in& address) noexcept
+void Socket::Bind(const sockaddr* address, socklen_t size) noexcept
 {
-	ASSERT(m_AF == AF_INET, "Socket hasn't opened with an IPv4 Address Family!");
-	int result = bind(*m_SockRef, (sockaddr*)&address, sizeof(sockaddr_in));
-	ASSERT(result != SOCKET_ERROR, GetError().c_str());
-}
-
-void Socket::Bind(const sockaddr_in6& address) noexcept
-{
-	ASSERT(m_AF == AF_INET6, "Socket hasn't opened with an IPv6 Address Family!");
-	int result = bind(*m_SockRef, (sockaddr*)&address, sizeof(sockaddr_in6));
+	ASSERT(m_AF == address->sa_family, "Socket hasn't opened with same address Family!");
+	int result = bind(*m_SockRef, address, size);
 	ASSERT(result != SOCKET_ERROR, GetError().c_str());
 }
 
@@ -84,14 +77,14 @@ void Socket::Connect(const char* address, unsigned short port) noexcept
 	{
 		sockaddr_in sock_address = { 0 };
 		CreateAddress(address, port, sock_address);
-		Connect(sock_address);
+		Connect((sockaddr*)&sock_address, sizeof(sockaddr_in));
 		break;
 	}
 	case AF_INET6:
 	{
 		sockaddr_in6 sock_address = { 0 };
 		CreateAddress(address, port, sock_address);
-		Connect(sock_address);
+		Connect((sockaddr*)&sock_address, sizeof(sockaddr_in6));
 		break;
 	}
 	default:
@@ -100,18 +93,10 @@ void Socket::Connect(const char* address, unsigned short port) noexcept
 	}
 }
 
-void Socket::Connect(const sockaddr_in& address) noexcept
+void Socket::Connect(const sockaddr* address, socklen_t size) noexcept
 {
-	ASSERT(m_AF == AF_INET, "Socket hasn't opened with an IPv4 Address Family!");
-	int result = connect(*m_SockRef, (sockaddr*)&address, sizeof(sockaddr_in));
-	ASSERT(result != SOCKET_ERROR, GetError().c_str());
-}
-
-
-void Socket::Connect(const sockaddr_in6& address) noexcept
-{
-	ASSERT(m_AF == AF_INET6, "Socket hasn't opened with an IPv4 Address Family!");
-	int result = connect(*m_SockRef, (sockaddr*)&address, sizeof(sockaddr_in6));
+	ASSERT(m_AF == address->sa_family, "Socket hasn't opened with same address Family!");
+	int result = connect(*m_SockRef, address, size);
 	ASSERT(result != SOCKET_ERROR, GetError().c_str());
 }
 
@@ -134,31 +119,17 @@ Socket Socket::Accept(void) const noexcept
 	return clientSock;
 }
 
-Socket Socket::Accept(sockaddr_in& address) const noexcept
+Socket Socket::Accept(sockaddr* address, socklen_t* size) const noexcept
 {
-	ASSERT(m_AF == AF_INET, "Socket must be opened with an IPv4 as Address Family!");
+	ASSERT(*m_SockRef != INVALID_SOCKET, "The Socket is not opened!");
 
 	Socket client{};
-	socklen_t addressSize = sizeof(sockaddr_in);
-
-	*client.m_SockRef = accept(*m_SockRef, (sockaddr*)&address, &addressSize);
+	*client.m_SockRef = accept(*m_SockRef, address, size);
 	ASSERT(*client.m_SockRef != INVALID_SOCKET, GetError().c_str());
 	client.m_AF = m_AF;
 	return client;
 }
 
-Socket Socket::Accept(sockaddr_in6& address) const noexcept
-{
-	ASSERT(m_AF == AF_INET6, "Socket must be opened with an IPv6 as Address Family!");
-
-	Socket client{};
-	socklen_t addressSize = sizeof(sockaddr_in6);
-
-	*client.m_SockRef = accept(*m_SockRef, (sockaddr*)&address, &addressSize);
-	ASSERT(*client.m_SockRef != INVALID_SOCKET, GetError().c_str());
-	client.m_AF = m_AF;
-	return client;
-}
 
 int Socket::Send(const void* data, unsigned int length, unsigned int offset) const noexcept
 {
@@ -171,25 +142,13 @@ int Socket::Send(const void* data, unsigned int length, unsigned int offset) con
 	return bytes;
 }
 
-int Socket::SendTo(const void* data, const sockaddr_in& address, unsigned int length, unsigned int offset) const noexcept
+int Socket::SendTo(const void* data, const sockaddr* address, socklen_t addressSize, unsigned int length, unsigned offset) const noexcept
 {
 	ASSERT(*m_SockRef != INVALID_SOCKET, "Socket is not opened!");
-	ASSERT(m_AF == AF_INET, "Socket must be opened with an IPv4 as Address Family!");
+	ASSERT(m_AF == address->sa_family, "Socket hasn't opened with same address Family!");
 	char* buffer = (char*)data + offset;
 
-	int bytes = sendto(*m_SockRef, buffer, length, 0, (sockaddr*)&address, sizeof(sockaddr_in));
-
-	ASSERT(bytes > -1, GetError().c_str());
-	return bytes;
-}
-
-int Socket::SendTo(const void* data, const sockaddr_in6& address, unsigned int length, unsigned int offset) const noexcept
-{
-	ASSERT(*m_SockRef != INVALID_SOCKET, "Socket is not opened!");
-	ASSERT(m_AF == AF_INET6, "Socket must be opened with an IPv6 as Address Family!");
-
-	char* buffer = (char*)data + offset;
-	int bytes = sendto(*m_SockRef, buffer, length, 0, (sockaddr*)&address, sizeof(sockaddr_in6));
+	int bytes = sendto(*m_SockRef, buffer, length, 0, address, addressSize);
 
 	ASSERT(bytes > -1, GetError().c_str());
 	return bytes;
@@ -206,28 +165,13 @@ int Socket::Receive(void* data, unsigned int length, unsigned int offset) const 
 	return bytes;
 }
 
-int Socket::ReceiveFrom(void* data, sockaddr_in& address, unsigned int length, unsigned int offset) const noexcept
+int Socket::ReceiveFrom(void* data, sockaddr* address, socklen_t* addressSize, unsigned int length, unsigned int offset) const noexcept
 {
 	ASSERT(*m_SockRef != INVALID_SOCKET, "Socket is not opened!");
-	ASSERT(m_AF == AF_INET, "Socket must be opened with an IPv4 as Address Family!");
 
 	char* buffer = (char*)data + offset;
-	socklen_t addressSize = sizeof(sockaddr_in);
 
-	int bytes = recvfrom(*m_SockRef, buffer, length, 0, (sockaddr*)&address, &addressSize);
-	ASSERT(bytes > -1, GetError().c_str());
-	return bytes;
-}
-
-int Socket::ReceiveFrom(void* data, sockaddr_in6& address, unsigned int length, unsigned int offset) const noexcept
-{
-	ASSERT(*m_SockRef != INVALID_SOCKET, "Socket is not opened!");
-	ASSERT(m_AF == AF_INET6, "Socket must be opened with an IPv6 as Address Family!");
-
-	char* buffer = (char*)data + offset;
-	socklen_t addressSize = sizeof(sockaddr_in6);
-
-	int bytes = recvfrom(*m_SockRef, buffer, length, 0, (sockaddr*)&address, &addressSize);
+	int bytes = recvfrom(*m_SockRef, buffer, length, 0, address, addressSize);
 	ASSERT(bytes > -1, GetError().c_str());
 	return bytes;
 }
