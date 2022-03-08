@@ -10,21 +10,21 @@ std::string GetError(void) noexcept;
 
 Socket::Socket(void) noexcept
 {
-	m_SockRef = std::make_shared<SOCKET>(INVALID_SOCKET);
+	mSockRef = std::make_shared<SOCKET>(INVALID_SOCKET);
 }
 
 void Socket::Open(int family, int type, int proto) noexcept
 {
-	SOCKET& sock = *m_SockRef;
+	SOCKET& sock = *mSockRef;
 	ASSERT(sock == INVALID_SOCKET, "Socket is already opened!");
 	sock = socket(family, type, proto);
 	ASSERT(sock != INVALID_SOCKET, GetError().c_str());
-	m_AF = family;
+	mAF = family;
 }
 
-void Socket::Bind(const char* address, unsigned short port) noexcept
+void Socket::Bind(const char* address, unsigned short port) const noexcept
 {
-	switch (m_AF)
+	switch (mAF)
 	{
 	case AF_INET:
 	{
@@ -46,32 +46,34 @@ void Socket::Bind(const char* address, unsigned short port) noexcept
 	}
 }
 
-void Socket::Bind(const sockaddr* address, socklen_t size) noexcept
+void Socket::Bind(const sockaddr* address, socklen_t size) const noexcept
 {
-	ASSERT(m_AF == address->sa_family, "Socket hasn't opened with same address Family!");
-	int result = bind(*m_SockRef, address, size);
+	ASSERT(mAF == address->sa_family, "Socket hasn't opened with same address Family!");
+	int result = bind(*mSockRef, address, size);
 	ASSERT(result != SOCKET_ERROR, GetError().c_str());
 }
 
+void Socket::Bind(const std::string& address, unsigned short port) const noexcept { Bind(address.c_str(), port);  }
+
 void Socket::Shutdown(int how) noexcept
 {
-	ASSERT(*m_SockRef != INVALID_SOCKET, "The Socket is not opened!")
-	int result = shutdown(*m_SockRef, how);
+	ASSERT(*mSockRef != INVALID_SOCKET, "The Socket is not opened!")
+	int result = shutdown(*mSockRef, how);
 	ASSERT(result != SOCKET_ERROR, GetError().c_str());
 }
 
 void Socket::Close(void) noexcept
 {
-	ASSERT(*m_SockRef != INVALID_SOCKET, "The Socket is already closed!");
-	int result = closesocket(*m_SockRef);
+	ASSERT(*mSockRef != INVALID_SOCKET, "The Socket is already closed!");
+	int result = closesocket(*mSockRef);
 	ASSERT(result != SOCKET_ERROR, GetError().c_str());
-	*m_SockRef = INVALID_SOCKET;
-	m_AF = AF_UNSPEC;
+	*mSockRef = INVALID_SOCKET;
+	mAF = AF_UNSPEC;
 }
 
-void Socket::Connect(const char* address, unsigned short port) noexcept
+void Socket::Connect(const char* address, unsigned short port) const noexcept
 {
-	switch (m_AF)
+	switch (mAF)
 	{
 	case AF_INET:
 	{
@@ -93,62 +95,94 @@ void Socket::Connect(const char* address, unsigned short port) noexcept
 	}
 }
 
-void Socket::Connect(const sockaddr* address, socklen_t size) noexcept
+void Socket::Connect(const sockaddr* address, socklen_t size) const noexcept
 {
-	ASSERT(m_AF == address->sa_family, "Socket hasn't opened with same address Family!");
-	int result = connect(*m_SockRef, address, size);
+	ASSERT(mAF == address->sa_family, "Socket hasn't opened with same address Family!");
+	int result = connect(*mSockRef, address, size);
 	ASSERT(result != SOCKET_ERROR, GetError().c_str());
 }
+
+void Socket::Connect(const std::string& address, unsigned short port) const noexcept { Connect(address.c_str(), port); }
 
 void Socket::Listen(int length) noexcept
 {
-	ASSERT(*m_SockRef != INVALID_SOCKET, "The Socket is not opened!");
-	int result = listen(*m_SockRef, length);
+	ASSERT(*mSockRef != INVALID_SOCKET, "The Socket is not opened!");
+	int result = listen(*mSockRef, length);
 	ASSERT(result != SOCKET_ERROR, GetError().c_str());
 }
 
-Socket Socket::Accept(void) const noexcept
+std::pair<Socket, std::pair<std::string, unsigned short>> Socket::Accept(void) const noexcept
 {
-	ASSERT(*m_SockRef != INVALID_SOCKET, "The Socket is not opened!");
+	ASSERT(*mSockRef != INVALID_SOCKET, "The Socket is not opened!");
 	Socket clientSock{};
 	
-	*clientSock.m_SockRef = accept(*m_SockRef, NULL, NULL);
-	ASSERT(*clientSock.m_SockRef != INVALID_SOCKET, GetError().c_str());
+	std::string ip;
+	unsigned short port = 0;
+	switch (mAF)
+	{
+	case AF_INET:
+	{
+		char buffer[16];
+		sockaddr_in address = { 0 };
+		socklen_t size = sizeof(sockaddr_in);
+		*clientSock.mSockRef = accept(*mSockRef, (sockaddr*)&address, &size);
+		ASSERT(*clientSock.mSockRef != INVALID_SOCKET, GetError().c_str());
+		inet_ntop(AF_INET, &address.sin_addr, buffer, 16);
+		ip = std::string(buffer);
+		port = ntohs(address.sin_port);
+		break;
+	}
+	case AF_INET6:
+	{
+		char buffer[46];
+		memset(buffer, 0, 46);
+		sockaddr_in6 address = { 0 };
+		socklen_t size = sizeof(sockaddr_in6);
+		*clientSock.mSockRef = accept(*mSockRef, (sockaddr*)&address, &size);
+		ASSERT(*clientSock.mSockRef != INVALID_SOCKET, GetError().c_str());
+		inet_ntop(AF_INET6, &address.sin6_addr, buffer, 46);
+		ip = std::string(buffer);
+		port = ntohs(address.sin6_port);
+		break;
+	}
+	default:
+		break;
+	}
 
-	clientSock.m_AF = m_AF;
-	return clientSock;
+	clientSock.mAF = mAF;
+	return std::make_pair(clientSock, std::make_pair(ip, port));
 }
 
 Socket Socket::Accept(sockaddr* address, socklen_t* size) const noexcept
 {
-	ASSERT(*m_SockRef != INVALID_SOCKET, "The Socket is not opened!");
+	ASSERT(*mSockRef != INVALID_SOCKET, "The Socket is not opened!");
 
 	Socket client{};
-	*client.m_SockRef = accept(*m_SockRef, address, size);
-	ASSERT(*client.m_SockRef != INVALID_SOCKET, GetError().c_str());
-	client.m_AF = m_AF;
+	*client.mSockRef = accept(*mSockRef, address, size);
+	ASSERT(*client.mSockRef != INVALID_SOCKET, GetError().c_str());
+	client.mAF = mAF;
 	return client;
 }
 
 
 int Socket::Send(const void* data, unsigned int length, unsigned int offset) const noexcept
 {
-	ASSERT(*m_SockRef != INVALID_SOCKET, "Socket is not opened!");
+	ASSERT(*mSockRef != INVALID_SOCKET, "Socket is not opened!");
 	char* buffer = (char*)data + offset;
 
-	int bytes = send(*m_SockRef, buffer, length, 0);
+	int bytes = send(*mSockRef, buffer, length, 0);
 
 	ASSERT(bytes > -1, GetError().c_str());
 	return bytes;
 }
 
-int Socket::SendTo(const void* data, const sockaddr* address, socklen_t addressSize, unsigned int length, unsigned offset) const noexcept
+int Socket::SendTo(const void* data, const sockaddr* address, socklen_t addressSize, unsigned int length, unsigned int offset) const noexcept
 {
-	ASSERT(*m_SockRef != INVALID_SOCKET, "Socket is not opened!");
-	ASSERT(m_AF == address->sa_family, "Socket hasn't opened with same address Family!");
+	ASSERT(*mSockRef != INVALID_SOCKET, "Socket is not opened!");
+	ASSERT(mAF == address->sa_family, "Socket hasn't opened with same address Family!");
 	char* buffer = (char*)data + offset;
 
-	int bytes = sendto(*m_SockRef, buffer, length, 0, address, addressSize);
+	int bytes = sendto(*mSockRef, buffer, length, 0, address, addressSize);
 
 	ASSERT(bytes > -1, GetError().c_str());
 	return bytes;
@@ -156,10 +190,10 @@ int Socket::SendTo(const void* data, const sockaddr* address, socklen_t addressS
 
 int Socket::Receive(void* data, unsigned int length, unsigned int offset) const noexcept
 {
-	ASSERT(*m_SockRef != INVALID_SOCKET, "Socket is not opened!");
+	ASSERT(*mSockRef != INVALID_SOCKET, "Socket is not opened!");
 	char* buffer = (char*)data + offset;
 
-	int bytes = recv(*m_SockRef, buffer, length, 0);
+	int bytes = recv(*mSockRef, buffer, length, 0);
 
 	ASSERT(bytes > -1, GetError().c_str());
 	return bytes;
@@ -167,11 +201,11 @@ int Socket::Receive(void* data, unsigned int length, unsigned int offset) const 
 
 int Socket::ReceiveFrom(void* data, sockaddr* address, socklen_t* addressSize, unsigned int length, unsigned int offset) const noexcept
 {
-	ASSERT(*m_SockRef != INVALID_SOCKET, "Socket is not opened!");
+	ASSERT(*mSockRef != INVALID_SOCKET, "Socket is not opened!");
 
 	char* buffer = (char*)data + offset;
 
-	int bytes = recvfrom(*m_SockRef, buffer, length, 0, address, addressSize);
+	int bytes = recvfrom(*mSockRef, buffer, length, 0, address, addressSize);
 	ASSERT(bytes > -1, GetError().c_str());
 	return bytes;
 }
@@ -179,35 +213,35 @@ int Socket::ReceiveFrom(void* data, sockaddr* address, socklen_t* addressSize, u
 Socket::Socket(Socket&& other) noexcept
 	: Socket()
 {
-	m_SockRef = other.m_SockRef;
-	m_AF = other.m_AF;
-	m_BlockMode = other.m_BlockMode;
+	mSockRef = other.mSockRef;
+	mAF = other.mAF;
+	mBlockMode = other.mBlockMode;
 
-	other.m_SockRef = std::make_shared<SOCKET>(INVALID_SOCKET);
-	other.m_AF = AF_UNSPEC;
-	other.m_BlockMode = true;
+	other.mSockRef = std::make_shared<SOCKET>(INVALID_SOCKET);
+	other.mAF = AF_UNSPEC;
+	other.mBlockMode = true;
 }
 
 Socket& Socket::operator=(Socket&& rhs) noexcept
 {
 	if (this == &rhs) return *this;
 
-	if ((m_SockRef.use_count() == 1) && (*m_SockRef != INVALID_SOCKET))
+	if ((mSockRef.use_count() == 1) && (*mSockRef != INVALID_SOCKET))
 		Close();
 
-	m_SockRef = rhs.m_SockRef;
-	m_AF = rhs.m_AF;
-	m_BlockMode = rhs.m_BlockMode;
+	mSockRef = rhs.mSockRef;
+	mAF = rhs.mAF;
+	mBlockMode = rhs.mBlockMode;
 
-	rhs.m_SockRef = std::make_shared<SOCKET>(INVALID_SOCKET);
-	rhs.m_AF = AF_UNSPEC;
-	rhs.m_BlockMode = true;
+	rhs.mSockRef = std::make_shared<SOCKET>(INVALID_SOCKET);
+	rhs.mAF = AF_UNSPEC;
+	rhs.mBlockMode = true;
 	return *this;
 }
 
 Socket::~Socket(void) noexcept
 {
-	if ((m_SockRef.use_count() == 1) && (*m_SockRef != INVALID_SOCKET))
+	if ((mSockRef.use_count() == 1) && (*mSockRef != INVALID_SOCKET))
 		Close();
 }
 
@@ -237,36 +271,36 @@ void CreateAddress(const char* address, unsigned short port, sockaddr_in6& sockA
 
 void Socket::SetBlocking(bool flag) noexcept
 {
-	ASSERT(*m_SockRef != INVALID_SOCKET, "Socket is not opened!");
-	if (flag == m_BlockMode) return;
+	ASSERT(*mSockRef != INVALID_SOCKET, "Socket is not opened!");
+	if (flag == mBlockMode) return;
 	int result = SOCKET_ERROR;
 #ifdef PLATFORM_WINDOWS
 	unsigned long iMode = (unsigned long)!flag;
-	result = ioctlsocket(*m_SockRef, FIONBIO, &iMode);
+	result = ioctlsocket(*mSockRef, FIONBIO, &iMode);
 #else
-	int flags = fcntl(*m_SockRef, F_GETFL);
+	int flags = fcntl(*mSockRef, F_GETFL);
 	flags = !flag ? (flags | O_NONBLOCK) : (flags & (~O_NONBLOCK));
-	result = ioctl(*m_SockRef, F_SETFL, flags);
+	result = ioctl(*mSockRef, F_SETFL, flags);
 #endif
 	ASSERT(result != SOCKET_ERROR, GetError().c_str());
-	m_BlockMode = flag;
+	mBlockMode = flag;
 }
 
 void Socket::SetTimeout(unsigned long long milis) noexcept
 {
-	ASSERT(*m_SockRef != INVALID_SOCKET, "Socket is not opened!");
+	ASSERT(*mSockRef != INVALID_SOCKET, "Socket is not opened!");
 	int result;
 #ifdef PLATFORM_WINDOWS
-	result = setsockopt(*m_SockRef, SOL_SOCKET, SO_SNDTIMEO, (char*)&milis, sizeof(unsigned long long));
+	result = setsockopt(*mSockRef, SOL_SOCKET, SO_SNDTIMEO, (char*)&milis, sizeof(unsigned long long));
 	ASSERT(result != SOCKET_ERROR, GetError().c_str());
-	result = setsockopt(*m_SockRef, SOL_SOCKET, SO_RCVTIMEO, (char*)&milis, sizeof(unsigned long long));
+	result = setsockopt(*mSockRef, SOL_SOCKET, SO_RCVTIMEO, (char*)&milis, sizeof(unsigned long long));
 	ASSERT(result != SOCKET_ERROR, GetError().c_str());
 #else
 	timeval timeout;
 	timeout.tv_usec = milis * 1000.0f;
-	result = setsockopt(*m_SockRef, SOL_SOCKET, SO_SNDTIMEO, (char*)&timeout, sizeof(timeval));
+	result = setsockopt(*mSockRef, SOL_SOCKET, SO_SNDTIMEO, (char*)&timeout, sizeof(timeval));
 	ASSERT(result != SOCKET_ERROR, GetError().c_str());
-	result = setsockopt(*m_SockRef, SOL_SOCKET, SO_RCVTIMEO, (char*)&timeout, sizeof(timeval));
+	result = setsockopt(*mSockRef, SOL_SOCKET, SO_RCVTIMEO, (char*)&timeout, sizeof(timeval));
 	ASSERT(result != SOCKET_ERROR, GetError().c_str());
 #endif
 }

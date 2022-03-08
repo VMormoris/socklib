@@ -1,5 +1,4 @@
-#ifndef PLATFORM_H
-#define PLATFORM_H
+#pragma once
 
 //Platform detection using predefined macros
 #ifdef _WIN32
@@ -74,6 +73,4 @@
 	}
 	#define main socklib_main
 	#endif
-#endif
-
 #endif

@@ -10,9 +10,9 @@ TEST_CASE("Testing Default Contructor", "[Socket]")
 {
 	Socket sock;
 	REQUIRE(sock.GetNativeFD() == INVALID_SOCKET);
-	REQUIRE(sock.m_AF == AF_UNSPEC);
-	REQUIRE(sock.m_BlockMode == true);//By default sockets are in blocking mode
-	REQUIRE(sock.m_SockRef.use_count() == 1);
+	REQUIRE(sock.mAF == AF_UNSPEC);
+	REQUIRE(sock.mBlockMode == true);//By default sockets are in blocking mode
+	REQUIRE(sock.mSockRef.use_count() == 1);
 }
 
 TEST_CASE("Testing Copy Constructor", "[Socket]")
@@ -20,9 +20,9 @@ TEST_CASE("Testing Copy Constructor", "[Socket]")
 	Socket sock;
 	Socket copy(sock);
 	REQUIRE(sock.GetNativeFD() == copy.GetNativeFD());
-	REQUIRE(sock.m_AF == copy.m_AF);
-	REQUIRE(sock.m_BlockMode == copy.m_BlockMode);
-	REQUIRE(sock.m_SockRef.use_count() == 2);
+	REQUIRE(sock.mAF == copy.mAF);
+	REQUIRE(sock.mBlockMode == copy.mBlockMode);
+	REQUIRE(sock.mSockRef.use_count() == 2);
 }
 
 TEST_CASE("Testing Move Constructor", "[Socket]")
@@ -33,11 +33,11 @@ TEST_CASE("Testing Move Constructor", "[Socket]")
 
 		REQUIRE(sock.GetNativeFD() == INVALID_SOCKET);
 		REQUIRE(sock.GetNativeFD() != moved.GetNativeFD());
-		REQUIRE(sock.m_AF != moved.m_AF);
-		REQUIRE(sock.m_AF == AF_UNSPEC);
-		REQUIRE(sock.m_BlockMode == moved.m_BlockMode);
-		REQUIRE(sock.m_SockRef.use_count() == 1);
-		REQUIRE(moved.m_SockRef.use_count() == 1);
+		REQUIRE(sock.mAF != moved.mAF);
+		REQUIRE(sock.mAF == AF_UNSPEC);
+		REQUIRE(sock.mBlockMode == moved.mBlockMode);
+		REQUIRE(sock.mSockRef.use_count() == 1);
+		REQUIRE(moved.mSockRef.use_count() == 1);
 	}
 
 	{
@@ -48,12 +48,12 @@ TEST_CASE("Testing Move Constructor", "[Socket]")
 		REQUIRE(sock.GetNativeFD() == INVALID_SOCKET);
 		REQUIRE(sock.GetNativeFD() != moved.GetNativeFD());
 		REQUIRE(copy.GetNativeFD() == moved.GetNativeFD());
-		REQUIRE(sock.m_AF != moved.m_AF);
-		REQUIRE(moved.m_AF == copy.m_AF);
-		REQUIRE(sock.m_AF == AF_UNSPEC);
-		REQUIRE(sock.m_BlockMode == moved.m_BlockMode);
-		REQUIRE(sock.m_SockRef.use_count() == 1);
-		REQUIRE(moved.m_SockRef.use_count() == 2);
+		REQUIRE(sock.mAF != moved.mAF);
+		REQUIRE(moved.mAF == copy.mAF);
+		REQUIRE(sock.mAF == AF_UNSPEC);
+		REQUIRE(sock.mBlockMode == moved.mBlockMode);
+		REQUIRE(sock.mSockRef.use_count() == 1);
+		REQUIRE(moved.mSockRef.use_count() == 2);
 	}
 }
 
@@ -63,28 +63,28 @@ TEST_CASE("Testing Open()", "[Socket]")
 		Socket sock;
 		sock.Open(AF_INET, SOCK_STREAM);
 		REQUIRE(sock.GetNativeFD() != INVALID_SOCKET);
-		REQUIRE(sock.m_AF == AF_INET);
+		REQUIRE(sock.mAF == AF_INET);
 	}
 
 	{//IPv4 Datagram Socket
 		Socket sock;
 		sock.Open(AF_INET, SOCK_DGRAM);
 		REQUIRE(sock.GetNativeFD() != INVALID_SOCKET);
-		REQUIRE(sock.m_AF == AF_INET);
+		REQUIRE(sock.mAF == AF_INET);
 	}
 
 	{//IPv6 Stream Socket
 		Socket sock;
 		sock.Open(AF_INET6, SOCK_STREAM);
 		REQUIRE(sock.GetNativeFD() != INVALID_SOCKET);
-		REQUIRE(sock.m_AF == AF_INET6);
+		REQUIRE(sock.mAF == AF_INET6);
 	}
 
 	{//IPv6 Datagram Socket
 		Socket sock;
 		sock.Open(AF_INET6, SOCK_DGRAM);
 		REQUIRE(sock.GetNativeFD() != INVALID_SOCKET);
-		REQUIRE(sock.m_AF == AF_INET6);
+		REQUIRE(sock.mAF == AF_INET6);
 	}
 }
 
@@ -94,7 +94,7 @@ TEST_CASE("Testing Close()", "[Socket]")
 	sock.Open(AF_INET, SOCK_STREAM);
 	sock.Close();
 	REQUIRE(sock.GetNativeFD() == INVALID_SOCKET);
-	REQUIRE(sock.m_AF == AF_UNSPEC);
+	REQUIRE(sock.mAF == AF_UNSPEC);
 }
 
 TEST_CASE("Testing Bind()", "Socket")
@@ -164,23 +164,28 @@ TEST_CASE("Testing Listen()", "[Socket]")
 	sock.Listen();
 }
 
+#include <iostream>
+
 TEST_CASE("Testing Accept()", "Socket")
 {
-	{//Accept without Address
+	{//Accept without address argument
 		auto task = std::async(std::launch::async, []()
 		{
 			Socket sock(AF_INET, SOCK_STREAM);
 			sock.Bind("127.0.0.1", 55555);
 			sock.Listen();
-			Socket client = sock.Accept();
+			auto [client, address] = sock.Accept();
+			const auto& [ip, port] = address;
 			REQUIRE(client.GetNativeFD() != INVALID_SOCKET);
-			REQUIRE(sock.m_AF == AF_INET);
+			REQUIRE(sock.mAF == AF_INET);
+			REQUIRE(ip.compare("127.0.0.1") == 0);
+			REQUIRE(port == 55556);
 		});
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(10));//Make sure the task starts before procceding
 
 		Socket sock(AF_INET, SOCK_STREAM);
-		
+		sock.Bind("127.0.0.1", 55556);
 		sockaddr_in address = { 0 };
 		address.sin_family = AF_INET;
 		address.sin_port = htons(55555);
@@ -208,7 +213,7 @@ TEST_CASE("Testing Accept()", "Socket")
 			Socket client = sock.Accept((sockaddr*)&address, &addressSize);
 
 			REQUIRE(client.GetNativeFD() != INVALID_SOCKET);
-			REQUIRE(sock.m_AF == AF_INET);
+			REQUIRE(sock.mAF == AF_INET);
 
 			REQUIRE(clientAddress.sin_port == address.sin_port);
 			REQUIRE(clientAddress.sin_addr.s_addr == address.sin_addr.s_addr);
@@ -246,7 +251,7 @@ TEST_CASE("Testing Accept()", "Socket")
 			Socket client = sock.Accept((sockaddr*)&address, &addressSize);
 
 			REQUIRE(client.GetNativeFD() != INVALID_SOCKET);
-			REQUIRE(sock.m_AF == AF_INET6);
+			REQUIRE(sock.mAF == AF_INET6);
 
 			REQUIRE(clientAddress.sin6_port == address.sin6_port);
 			for (size_t i = 0; i < 16; i++)
@@ -280,8 +285,10 @@ TEST_CASE("Testing Connect()", "[Socket]")
 			Socket sock(AF_INET, SOCK_STREAM);
 			sock.Bind("127.0.0.1", 55555);
 			sock.Listen();
-			Socket client = sock.Accept();
+			auto [client, address] = sock.Accept();
+			const auto& [ip, port] = address;
 			REQUIRE(client.GetNativeFD() != INVALID_SOCKET);
+			REQUIRE(ip.compare("127.0.0.1") == 0);
 		});
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(10));//Make sure the task starts before procceding
@@ -304,8 +311,10 @@ TEST_CASE("Testing Connect()", "[Socket]")
 			Socket sock(AF_INET6, SOCK_STREAM);
 			sock.Bind("::1", 55555);
 			sock.Listen();
-			Socket client = sock.Accept();
+			auto [client, address] = sock.Accept();
+			const auto& [ip, port] = address;
 			REQUIRE(client.GetNativeFD() != INVALID_SOCKET);
+			REQUIRE(ip.compare("::1") == 0);
 		});
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(10));//Make sure the task starts before procceding
@@ -328,8 +337,10 @@ TEST_CASE("Testing Connect()", "[Socket]")
 			Socket sock(AF_INET, SOCK_STREAM);
 			sock.Bind("127.0.0.1", 55555);
 			sock.Listen();
-			Socket client = sock.Accept();
+			auto [client, address] = sock.Accept();
+			const auto& [ip, port] = address;
 			REQUIRE(client.GetNativeFD() != INVALID_SOCKET);
+			REQUIRE(ip.compare("127.0.0.1") == 0);
 		});
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(10));//Make sure the task starts before procceding
@@ -346,8 +357,10 @@ TEST_CASE("Testing Connect()", "[Socket]")
 			Socket sock(AF_INET6, SOCK_STREAM);
 			sock.Bind("::1", 55555);
 			sock.Listen();
-			Socket client = sock.Accept();
+			auto [client, address] = sock.Accept();
+			const auto& [ip, port] = address;
 			REQUIRE(client.GetNativeFD() != INVALID_SOCKET);
+			REQUIRE(ip.compare("::1") == 0);
 		});
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(10));//Make sure the task starts before procceding
@@ -368,8 +381,9 @@ TEST_CASE("Testing Stream Transmition", "[Socket]")
 			Socket server(AF_INET, SOCK_STREAM);
 			server.Bind("127.0.0.1", 55555);
 			server.Listen();
-			Socket client = server.Accept();
-
+			auto [client, address] = server.Accept();
+			const auto& [ip, port] = address;
+			REQUIRE(ip.compare("127.0.0.1") == 0);
 			
 			char buffer[12];
 			
@@ -405,8 +419,9 @@ TEST_CASE("Testing Stream Transmition", "[Socket]")
 			Socket server(AF_INET6, SOCK_STREAM);
 			server.Bind("::1", 55555);
 			server.Listen();
-			Socket client = server.Accept();
-
+			auto [client, address] = server.Accept();
+			const auto& [ip, port] = address;
+			REQUIRE(ip.compare("::1") == 0);
 
 			char buffer[12];
 
@@ -554,9 +569,9 @@ TEST_CASE("Testing Copy assignement operator", "[Socket]")
 	Socket sock;
 	Socket copy; copy = sock;
 	REQUIRE(sock.GetNativeFD() == copy.GetNativeFD());
-	REQUIRE(sock.m_AF == copy.m_AF);
-	REQUIRE(sock.m_BlockMode == copy.m_BlockMode);
-	REQUIRE(sock.m_SockRef.use_count() == 2);
+	REQUIRE(sock.mAF == copy.mAF);
+	REQUIRE(sock.mBlockMode == copy.mBlockMode);
+	REQUIRE(sock.mSockRef.use_count() == 2);
 }
 
 TEST_CASE("Testing Move assignement operator", "[Socket]")
@@ -567,11 +582,11 @@ TEST_CASE("Testing Move assignement operator", "[Socket]")
 
 		REQUIRE(sock.GetNativeFD() == INVALID_SOCKET);
 		REQUIRE(sock.GetNativeFD() != moved.GetNativeFD());
-		REQUIRE(sock.m_AF != moved.m_AF);
-		REQUIRE(sock.m_AF == AF_UNSPEC);
-		REQUIRE(sock.m_BlockMode == moved.m_BlockMode);
-		REQUIRE(sock.m_SockRef.use_count() == 1);
-		REQUIRE(moved.m_SockRef.use_count() == 1);
+		REQUIRE(sock.mAF != moved.mAF);
+		REQUIRE(sock.mAF == AF_UNSPEC);
+		REQUIRE(sock.mBlockMode == moved.mBlockMode);
+		REQUIRE(sock.mSockRef.use_count() == 1);
+		REQUIRE(moved.mSockRef.use_count() == 1);
 	}
 
 	{
@@ -582,11 +597,11 @@ TEST_CASE("Testing Move assignement operator", "[Socket]")
 		REQUIRE(sock.GetNativeFD() == INVALID_SOCKET);
 		REQUIRE(sock.GetNativeFD() != moved.GetNativeFD());
 		REQUIRE(copy.GetNativeFD() == moved.GetNativeFD());
-		REQUIRE(sock.m_AF != moved.m_AF);
-		REQUIRE(moved.m_AF == copy.m_AF);
-		REQUIRE(sock.m_AF == AF_UNSPEC);
-		REQUIRE(sock.m_BlockMode == moved.m_BlockMode);
-		REQUIRE(sock.m_SockRef.use_count() == 1);
-		REQUIRE(moved.m_SockRef.use_count() == 2);
+		REQUIRE(sock.mAF != moved.mAF);
+		REQUIRE(moved.mAF == copy.mAF);
+		REQUIRE(sock.mAF == AF_UNSPEC);
+		REQUIRE(sock.mBlockMode == moved.mBlockMode);
+		REQUIRE(sock.mSockRef.use_count() == 1);
+		REQUIRE(moved.mSockRef.use_count() == 2);
 	}
 }
