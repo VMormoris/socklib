@@ -42,18 +42,19 @@ An example of an echo server using ```socklib```:
 
 int main(int argc, char** argv)
 {
-  Socket sock(AF_INET, SOCK_STREAM, 0);
-  sock.Bind("127.0.0.1", 55555);
-  sock.Listen();
+  Socket server(AF_INET, SOCK_STREAM, 0);
+  server.Bind("127.0.0.1", 55555);
+  server.Listen();
   char buffer[KiB];
   while(true)
   {
-    Socket client = sock.Accept();
+    auto [sock, client] = server.Accept();
+    const auto& [address, port] = client;
     int bytes = sock.Receive(buffer, KiB);
     bytes = sock.Send(buffer, bytes);
     sock.Close();
   }
-  sock.Close();
+  server.Close();
   return 0
 }
 ```
