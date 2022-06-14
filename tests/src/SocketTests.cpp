@@ -4,7 +4,7 @@
 
 #define private public
 #define protected public
-#include <socklib/socket.h>
+#include <socklib/Socket.h>
 #undef private
 #undef protected
 

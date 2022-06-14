@@ -1,5 +1,5 @@
 #define SOCK_MAIN
-#include <socklib/platform.h>
+#include <socklib/Platform.h>
 #define CATCH_CONFIG_RUNNER
 #include <catch.hpp>
 
