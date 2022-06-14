@@ -12,7 +12,6 @@
 #endif
 //End of platform detection
 
-
 //Assertion macro definitions
 #ifdef DEBUG_BUILD
 	#ifdef PLATFORM_WINDOWS//Windows
@@ -22,9 +21,9 @@
 		#define DEBUG_BREAK raise(SIGTRAP)
 	#endif
 	#include <stdio.h>
-	#define ASSERT(x, msg) {if(!(x)){fprintf(stderr, "[File: %s, line: %d] %s\n", __FILE__, __LINE__, msg); DEBUG_BREAK;}}
+	#define SOCKLIB_ASSERT(x, msg) {if(!(x)){fprintf(stderr, "[File: %s, line: %d] %s\n", __FILE__, __LINE__, msg); DEBUG_BREAK;}}
 #else
-	#define ASSERT(x, msg)
+	#define SOCKLIB_ASSERT(x, msg)
 #endif
 //End of assertion macro definitions
 
@@ -37,7 +36,7 @@
 	#define SHUT_WR SD_SEND
 	#define SHUT_RD SD_RECEIVE
 	#define SHUT_RDWR SD_BOTH
-	typedef int socklen_t;
+	namespace socklib { typedef int socklen_t; }
 #else//Unix-Like
 	#include <sys/select.h> 
 	#include <sys/types.h>
@@ -51,7 +50,7 @@
 	#define SOCKET_ERROR -1
 	#define closesocket close
 	//Extra type definition
-	typedef int SOCKET;
+	namespace socklib { typedef int SOCKET; }
 #endif
 
 //Windows processes that using sockets are supposed
@@ -59,18 +58,18 @@
 //	and WSACleanup() when they are done using them
 #ifdef SOCK_MAIN
 	#ifdef PLATFORM_WINDOWS
-	extern int socklib_main(int argc, char** argv);
+	namespace socklib { extern int socklib_main(int argc, char** argv); }
 	int main(int argc, char** argv)
 	{
 		WSADATA wsaData;
 		int iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
-		ASSERT(iResult == NO_ERROR, "WSAStartup Failed!");
+		SOCKLIB_ASSERT(iResult == NO_ERROR, "WSAStartup Failed!");
 
-		int result = socklib_main(argc, argv);
+		int result = socklib::socklib_main(argc, argv);
 
 		WSACleanup();
 		return result;
 	}
-	#define main socklib_main
+	#define main socklib::socklib_main
 	#endif
 #endif

@@ -5,6 +5,9 @@ bin-int
 # Make files
 **Makefile
 
+# Visual Studio code
+.vscode
+
 # Visual Studio files & folders
 .vs
 **.sln

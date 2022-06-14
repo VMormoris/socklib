@@ -1,4 +1,5 @@
-
+![logo](res/socklib.png)
+<br></br>
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![build](https://github.com/VMormoris/socklib/actions/workflows/build.yml/badge.svg)](https://github.com/VMormoris/socklib/actions/workflows/build.yml)
 <br>
 
@@ -33,12 +34,14 @@ In order to use the library into your own projects you will need:
 ## Examples
 An example of an echo server using ```socklib```:
 ```cpp
-#include <socklib/socket.h>
+#include <socklib/Socket.h>
 
 // ------- Only at the Entry Point file -------
 #define SOCK_MAIN
-#include <socklib/platform.h>
+#include <socklib/Platform.h>
 // --------------------------------------------
+
+using namespace socklib;
 
 int main(int argc, char** argv)
 {
@@ -60,12 +63,14 @@ int main(int argc, char** argv)
 ```
 An example of a Client that connect a send a message to the server above:
 ```cpp
-#include <socklib/socket.h>
+#include <socklib/Socket.h>
 
 // ------- Only at the Entry Point file -------
 #define SOCK_MAIN
-#include <socklib/platform.h>
+#include <socklib/Platform.h>
 // --------------------------------------------
+
+using namespace socklib;
 
 int main(int argc, char** argv)
 {
