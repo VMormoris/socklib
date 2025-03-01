@@ -17,16 +17,16 @@ jobs:
       - name: Setup cmake
         uses: jwlawson/actions-setup-cmake@v2
         with:
-          cmake-version: '3.15.x'
+          cmake-version: '3.21.x'
 
       - name: Add MSBuild to PATH
-        uses: microsoft/setup-msbuild@v1.0.2
+        uses: microsoft/setup-msbuild@v2
 
       - name: Use cmake
         run: cd build && cmake ..
 
       - name: Build tests
-        run: msbuild /m /p:Configuration=${{matrix.config}} .
+        run: cd build && msbuild /m /p:Configuration=${{matrix.config}} /t:socklib-tests socklib.sln
 
       - name: Run tests
         run: build\\bin\\${{matrix.config}}-windows\\socklib-tests\\socklib-tests.exe
@@ -46,13 +46,10 @@ jobs:
       - name: Setup cmake
         uses: jwlawson/actions-setup-cmake@v2
         with:
-          cmake-version: '3.17.x'
+          cmake-version: '3.21.x'
 
       - name: Install LLVM and Clang
-        run: wget -qO- https://apt.llvm.org/llvm.sh | bash -s -- 18 && apt install ninja-build
-
-      - name: Create link for clang++
-        run: ln /bin/clang-18 /bin/clang++
+        run: wget -qO- https://apt.llvm.org/llvm.sh | sudo bash -s -- 18 && sudo apt install ninja-build
 
       - name: Use cmake
         run: cd build && cmake .. -G "Ninja Multi-Config" && cmake --build . --config ${{matrix.config}}

@@ -20,8 +20,13 @@ namespace socklib {
 		sock = socket(static_cast<int>(family), static_cast<int>(type), proto);
 		SOCKLIB_ASSERT(sock != INVALID_SOCKET, GetError().c_str());
 
+#ifdef PLATFORM_WINDOWS
+		constexpr BOOL val = TRUE;
+		const int result = setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char*)&val, sizeof(BOOL));
+#else
 		constexpr int val = 1;
 		const int result = setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(int));
+#endif
 		SOCKLIB_ASSERT(result != SOCKET_ERROR, "Failed to set SO_REUSEADDR!");
 
 		mAF = family;
@@ -333,7 +338,7 @@ namespace socklib {
 			Close();
 	}
 
-	Socket Socket::CreateConnection(const AddressFamily family, const Endpoint& endpoint, const uint64_t timeout, const Endpoint& local) noexcept
+	Socket Socket::CreateConnection(const AddressFamily family, const Endpoint& endpoint, const uint32_t timeout, const Endpoint& local) noexcept
 	{
 		Socket client(family, SocketType::STREAM, IPPROTO_TCP);
 		client.Bind(local.Host, local.Port);
@@ -373,23 +378,23 @@ namespace socklib {
 		mBlockMode = flag;
 	}
 
-	void Socket::SetTimeout(const uint64_t millis) const noexcept
+	void Socket::SetTimeout(const uint32_t millis) const noexcept
 	{
 		SOCKLIB_ASSERT(mSockRef.use_count() >= 1, "Socket is not opened!");
 		SOCKLIB_ASSERT(*mSockRef != INVALID_SOCKET, "The Socket is already closed");
 		int result;
 	#ifdef PLATFORM_WINDOWS
-		result = setsockopt(*mSockRef, SOL_SOCKET, SO_SNDTIMEO, (char*)&milis, sizeof(uint64_t));
+		result = setsockopt(*mSockRef, SOL_SOCKET, SO_SNDTIMEO, (char*)&millis, sizeof(uint32_t));
 		SOCKLIB_ASSERT(result != SOCKET_ERROR, GetError().c_str());
-		result = setsockopt(*mSockRef, SOL_SOCKET, SO_RCVTIMEO, (char*)&milis, sizeof(uint64_t));
+		result = setsockopt(*mSockRef, SOL_SOCKET, SO_RCVTIMEO, (char*)&millis, sizeof(uint32_t));
 		SOCKLIB_ASSERT(result != SOCKET_ERROR, GetError().c_str());
 	#else
 		timeval timeout{};
 		timeout.tv_sec = static_cast<long>(millis) / 1000;
 		timeout.tv_usec = (static_cast<long>(millis) % 1000)* 1000;
-		result = setsockopt(*mSockRef, SOL_SOCKET, SO_SNDTIMEO, (char*)&timeout, sizeof(timeval));
+		result = setsockopt(*mSockRef, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeval));
 		SOCKLIB_ASSERT(result != SOCKET_ERROR, GetError().c_str());
-		result = setsockopt(*mSockRef, SOL_SOCKET, SO_RCVTIMEO, (char*)&timeout, sizeof(timeval));
+		result = setsockopt(*mSockRef, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeval));
 		SOCKLIB_ASSERT(result != SOCKET_ERROR, GetError().c_str());
 	#endif
 	}

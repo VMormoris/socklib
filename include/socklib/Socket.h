@@ -26,7 +26,7 @@ namespace socklib {
 		UNIX = AF_UNIX, // Not supported
 		IPv4 = AF_INET,
 		IPv6 = AF_INET6,
-		BLUETOOTH = AF_BLUETOOTH, // Not supported yet
+		// BLUETOOTH = AF_BLUETOOTH, // Not supported yet
 	};
 
 	enum class SocketType : int {
@@ -36,10 +36,10 @@ namespace socklib {
 		RAW = SOCK_RAW, // Not supported
 		RDM = SOCK_RDM, // Not supported
 		SEQ_PACKET = SOCK_SEQPACKET, // Not supported
-		DCCP = SOCK_DCCP, // Not supported
-		PACKET = SOCK_PACKET, // Not supported
-		CLOEXEC = SOCK_CLOEXEC, // Not supported
-		NONBLOCK = SOCK_NONBLOCK // Not supported
+		// DCCP = SOCK_DCCP, // Not supported
+		// PACKET = SOCK_PACKET, // Not supported
+		// CLOEXEC = SOCK_CLOEXEC, // Not supported
+		// NONBLOCK = SOCK_NONBLOCK // Not supported
 	};
 
 	/**
@@ -272,7 +272,7 @@ namespace socklib {
 		* @brief Setter for socket's time out
 		* @param millis Milliseconds that the socket should wait before a timeout occurs
 		*/
-		void SetTimeout(uint64_t millis) const noexcept;
+		void SetTimeout(uint32_t millis) const noexcept;
 
 		/**
 		* @brief Getter for Native File Descriptor
@@ -303,7 +303,7 @@ namespace socklib {
 		 * @return Socket after the requested connection has been established 
 		 * @warning Only IPv4 and IPv6 are supported currently
 		 */
-		static Socket CreateConnection(AddressFamily family, const Endpoint& endpoint, uint64_t timeout = 0, const Endpoint& local = {}) noexcept;
+		static Socket CreateConnection(AddressFamily family, const Endpoint& endpoint, uint32_t timeout = 0, const Endpoint& local = {}) noexcept;
 
 		/**
 		 * @brief Convenient function for creation a TCP server
