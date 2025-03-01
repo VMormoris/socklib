@@ -1,4 +1,4 @@
-name: build
+name: build-with-premake
 
 on: [push, pull_request]
 
@@ -13,65 +13,57 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4.2.2
 
       - name: Setup premake
         uses: abel0b/setup-premake@v2
         with:
           version: "5.0.0-beta1"
-      
+
       - name: Add MSBuild to PATH
         uses: microsoft/setup-msbuild@v1.0.2
-      
+
       - name: Create Solution file
         run: premake5.exe vs2019
-      
+
       - name: Build tests
         run: msbuild /m /p:Configuration=${{matrix.config}} .
 
       - name: Run tests
-        run: bin\\${{matrix.config}}-windows\\tests\\tests.exe
+        run: build\\bin\\${{matrix.config}}-windows\\tests\\tests.exe
 
-  debug-linux:
-    name: debug-build-tests
+  linux:
+    name: linux-build-test
     runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        config:
+          - build: debug
+            run: Debug
+          - build: release
+            run: Release
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4.2.2
 
       - name: Setup premake
         uses: abel0b/setup-premake@v2
         with:
           version: "5.0.0-beta1"
-      
+
+      - name: Install LLVM and Clang
+        run: wget -qO- https://apt.llvm.org/llvm.sh | bash -s -- 18
+
+      - name: Create link for clang++
+        run: ln /bin/clang-18 /bin/clang++
+
       - name: Create make files
         run: premake5 gmake2
-      
+
       - name: Build Project
-        run: make config=debug
-      
+        run: make config=${{matrix.config.build}}
+
       - name: Run tests
-        run: ./bin/Debug-linux/tests/tests
-
-  release-linux:
-    name: release-build-tests
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
-
-      - name: Setup premake
-        uses: abel0b/setup-premake@v2
-        with:
-          version: "5.0.0-beta1"
-      
-      - name: Create make files
-        run: premake5 gmake2
-      
-      - name: Build Project
-        run: make config=release
-      
-      - name: Run tests
-        run: ./bin/Release-linux/tests/tests
+        run: ./build/bin/${{matrix.config.run}}-linux/socklib-tests/socklib-tests

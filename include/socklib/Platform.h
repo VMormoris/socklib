@@ -17,10 +17,10 @@
 	#ifdef PLATFORM_WINDOWS//Windows
 		#define DEBUG_BREAK __debugbreak()
 	#else//Unix-Like
-		#include <signal.h>
+		#include <csignal>
 		#define DEBUG_BREAK raise(SIGTRAP)
 	#endif
-	#include <stdio.h>
+	#include <cstdio>
 	#define SOCKLIB_ASSERT(x, msg) {if(!(x)){fprintf(stderr, "[File: %s, line: %d] %s\n", __FILE__, __LINE__, msg); DEBUG_BREAK;}}
 #else
 	#define SOCKLIB_ASSERT(x, msg)
@@ -36,7 +36,10 @@
 	#define SHUT_WR SD_SEND
 	#define SHUT_RD SD_RECEIVE
 	#define SHUT_RDWR SD_BOTH
-	namespace socklib { typedef int socklen_t; }
+	namespace socklib {
+		typedef int socklen_t;
+		using IOSize = int;
+	}
 #else//Unix-Like
 	#include <sys/select.h> 
 	#include <sys/types.h>
@@ -46,11 +49,14 @@
 	#include <fcntl.h>
 	#include <sys/ioctl.h>
 	//Extra macro definition
-	#define INVALID_SOCKET -1
-	#define SOCKET_ERROR -1
+	#define INVALID_SOCKET (-1)
+	#define SOCKET_ERROR (-1)
 	#define closesocket close
 	//Extra type definition
-	namespace socklib { typedef int SOCKET; }
+	namespace socklib {
+		using SOCKET = int;
+		using IOSize = ssize_t;
+	}
 #endif
 
 //Windows processes that using sockets are supposed

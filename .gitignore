@@ -1,7 +1,3 @@
-# Binary files & folders
-bin
-bin-int
-
 # Make files
 **Makefile
 
@@ -14,3 +10,8 @@ bin-int
 **.vcxproj
 **.vcxproj.filters
 **.vcxproj.user
+
+# Clion
+.idea
+cmake-build-debug
+cmake-build-release

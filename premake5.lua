@@ -17,15 +17,15 @@ project "socklib"
 	location "socklib"
 	kind "StaticLib"
 	language "C++"
-	cppdialect "C++17"
+	cppdialect "C++20"
 
-	targetdir("bin/" .. outputdir .. "/%{prj.name}")
-	objdir("bin-int/" .. outputdir .. "/%{prj.name}")
+	targetdir("build/bin/" .. outputdir .. "/%{prj.name}")
+	objdir("build/bin-int/" .. outputdir .. "/%{prj.name}")
 
 	files
 	{
 		"include/socklib/**.h",
-		"%{prj.name}/src/**.cpp",
+		"src/**.cpp",
 	}
 
 	includedirs
@@ -47,19 +47,19 @@ project "socklib"
 		optimize "on"
 
 
-project "tests"
+project "socklib-tests"
 	location "tests"
 	kind "ConsoleApp"
 	language "C++"
-	cppdialect "C++17"
+	cppdialect "C++20"
 
-	targetdir("bin/" .. outputdir .. "/%{prj.name}")
-	objdir("bin-int/" .. outputdir .. "/%{prj.name}")
+	targetdir("build/bin/" .. outputdir .. "/%{prj.name}")
+	objdir("build/bin-int/" .. outputdir .. "/%{prj.name}")
 
 	files
 	{
-		"%{prj.name}/src/**.h",
-		"%{prj.name}/src/**.cpp"
+		"tests/src/**.h",
+		"tests/src/**.cpp"
 	}
 
 
@@ -75,10 +75,15 @@ project "tests"
 	}
 
 	filter "system:linux"
+	    defines
+	    {
+            "CATCH_CONFIG_NO_POSIX_SIGNALS",
+        }
 		links
 		{
-			"pthread"
 		}
+
+		toolset("clang")
 
 	filter "configurations:Debug"
 		runtime "Debug"

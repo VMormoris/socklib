@@ -1,0 +1,61 @@
+name: build-with-cmake
+on: [push, pull_request]
+
+jobs:
+  windows:
+    name: windows-build-tests
+    runs-on: windows-latest
+
+    strategy:
+      matrix:
+        config: [Debug, Release]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.2.2
+
+      - name: Setup cmake
+        uses: jwlawson/actions-setup-cmake@v2
+        with:
+          cmake-version: '3.15.x'
+
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v1.0.2
+
+      - name: Use cmake
+        run: cd build && cmake ..
+
+      - name: Build tests
+        run: msbuild /m /p:Configuration=${{matrix.config}} .
+
+      - name: Run tests
+        run: build\\bin\\${{matrix.config}}-windows\\socklib-tests\\socklib-tests.exe
+
+  linux:
+    name: linux-build-tests
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        config: [Debug, Release]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4.2.2
+
+      - name: Setup cmake
+        uses: jwlawson/actions-setup-cmake@v2
+        with:
+          cmake-version: '3.17.x'
+
+      - name: Install LLVM and Clang
+        run: wget -qO- https://apt.llvm.org/llvm.sh | bash -s -- 18 && apt install ninja-build
+
+      - name: Create link for clang++
+        run: ln /bin/clang-18 /bin/clang++
+
+      - name: Use cmake
+        run: cd build && cmake .. -G "Ninja Multi-Config" && cmake --build . --config ${{matrix.config}}
+
+      - name: Run tests
+        run: ./build/bin/${{matrix.config}}-linux/socklib-tests/socklib-tests

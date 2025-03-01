@@ -1,43 +1,48 @@
 #include <socklib/Socket.h>
 #include <cstring>
 
-//TODO(Vasilis): Think if we need to assert at Accept and IO (I'm curious about what I should do on timeout)
-
 //Declaration of helper functions
 void CreateAddress(const char* address, unsigned short port, sockaddr_in& sockAddress) noexcept;
 void CreateAddress(const char* address, unsigned short port, sockaddr_in6& sockAddress) noexcept;
-std::string GetError(void) noexcept;
+std::string GetError() noexcept;
+bool HasTimeoutError() noexcept;
 //End Declaration of helper functions
 
 namespace socklib {
 
-	void Socket::Open(int family, int type, int proto) noexcept
+	void Socket::Open(const AddressFamily family, const SocketType type, const int proto) noexcept
 	{
 		if(mSockRef.use_count() == 0)
 			mSockRef = std::make_shared<SOCKET>(INVALID_SOCKET);
 		SOCKET& sock = *mSockRef;
 		SOCKLIB_ASSERT(sock == INVALID_SOCKET, "Socket is already opened!");
-		sock = socket(family, type, proto);
+
+		sock = socket(static_cast<int>(family), static_cast<int>(type), proto);
 		SOCKLIB_ASSERT(sock != INVALID_SOCKET, GetError().c_str());
+
+		constexpr int val = 1;
+		const int result = setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(int));
+		SOCKLIB_ASSERT(result != SOCKET_ERROR, "Failed to set SO_REUSEADDR!");
+
 		mAF = family;
 	}
 
-	void Socket::Bind(const char* address, unsigned short port) const noexcept
+	void Socket::Bind(const char* address, const unsigned short port) const noexcept
 	{
 		switch (mAF)
 		{
-		case AF_INET:
+		case AddressFamily::IPv4:
 		{
 			sockaddr_in sock_address = { 0 };
 			CreateAddress(address, port, sock_address);
-			Bind((sockaddr*)&sock_address, sizeof(sockaddr_in));
+			Bind(reinterpret_cast<sockaddr*>(&sock_address), sizeof(sockaddr_in));
 			break;
 		}
-		case AF_INET6:
+		case AddressFamily::IPv6:
 		{
 			sockaddr_in6 sock_address = { 0 };
 			CreateAddress(address, port, sock_address);
-			Bind((sockaddr*)&sock_address, sizeof(sockaddr_in6));
+			Bind(reinterpret_cast<sockaddr*>(&sock_address), sizeof(sockaddr_in6));
 			break;
 		}
 		default:
@@ -46,50 +51,55 @@ namespace socklib {
 		}
 	}
 
-	void Socket::Bind(const sockaddr* address, socklen_t size) const noexcept
+	void Socket::Bind(const sockaddr* address, const socklen_t size) const noexcept
 	{
 		SOCKLIB_ASSERT(mSockRef.use_count() >= 1, "Socket is not opened!");
-		SOCKLIB_ASSERT(mAF == address->sa_family, "Socket hasn't opened with same address Family!");
-		int result = bind(*mSockRef, address, size);
+		SOCKLIB_ASSERT(mAF == static_cast<AddressFamily>(address->sa_family), "Socket hasn't opened with same address Family!");
+		const int result = bind(*mSockRef, address, size);
 		SOCKLIB_ASSERT(result != SOCKET_ERROR, GetError().c_str());
 	}
 
-	void Socket::Bind(const std::string& address, unsigned short port) const noexcept { Bind(address.c_str(), port);  }
+	void Socket::Bind(const std::string& address, const unsigned short port) const noexcept { Bind(address.c_str(), port);  }
 
-	void Socket::Shutdown(int how) noexcept
+	void Socket::Shutdown(const int how) const noexcept
 	{
 		SOCKLIB_ASSERT(mSockRef.use_count() >= 1, "Socket is not opened!");
 		SOCKLIB_ASSERT(*mSockRef != INVALID_SOCKET, "The Socket is already closed!");
-		int result = shutdown(*mSockRef, how);
+		const int result = shutdown(*mSockRef, how);
 		SOCKLIB_ASSERT(result != SOCKET_ERROR, GetError().c_str());
 	}
 
-	void Socket::Close(void) noexcept
+	void Socket::Close() noexcept
 	{
 		SOCKLIB_ASSERT(mSockRef.use_count() >= 1, "Socket is not opened!");
 		SOCKLIB_ASSERT(*mSockRef != INVALID_SOCKET, "The Socket is already closed!");
-		int result = closesocket(*mSockRef);
+		const int result = closesocket(*mSockRef);
 		SOCKLIB_ASSERT(result != SOCKET_ERROR, GetError().c_str());
 		*mSockRef = INVALID_SOCKET;
-		mAF = AF_UNSPEC;
+		mAF = AddressFamily::UNSPECIFIED;
 	}
 
-	void Socket::Connect(const char* address, unsigned short port) const noexcept
+	void Socket::Connect(const Endpoint &endpoint) const noexcept
+	{
+		Connect(endpoint.Host.c_str(), endpoint.Port);
+	}
+
+	void Socket::Connect(const char* address, const unsigned short port) const noexcept
 	{
 		switch (mAF)
 		{
-		case AF_INET:
+		case AddressFamily::IPv4:
 		{
 			sockaddr_in sock_address = { 0 };
 			CreateAddress(address, port, sock_address);
-			Connect((sockaddr*)&sock_address, sizeof(sockaddr_in));
+			Connect(reinterpret_cast<sockaddr*>(&sock_address), sizeof(sockaddr_in));
 			break;
 		}
-		case AF_INET6:
+		case AddressFamily::IPv6:
 		{
 			sockaddr_in6 sock_address = { 0 };
 			CreateAddress(address, port, sock_address);
-			Connect((sockaddr*)&sock_address, sizeof(sockaddr_in6));
+			Connect(reinterpret_cast<sockaddr*>(&sock_address), sizeof(sockaddr_in6));
 			break;
 		}
 		default:
@@ -98,24 +108,25 @@ namespace socklib {
 		}
 	}
 
-	void Socket::Connect(const sockaddr* address, socklen_t size) const noexcept
+	void Socket::Connect(const sockaddr* address, const socklen_t size) const noexcept
 	{
-		SOCKLIB_ASSERT(mAF == address->sa_family, "Socket hasn't opened with same address Family!");
-		int result = connect(*mSockRef, address, size);
+		SOCKLIB_ASSERT(mAF == static_cast<AddressFamily>(address->sa_family), "Socket hasn't opened with same address Family!");
+		const int result = connect(*mSockRef, address, size);
+		if (HasTimeoutError()) return;
 		SOCKLIB_ASSERT(result != SOCKET_ERROR, GetError().c_str());
 	}
 
-	void Socket::Connect(const std::string& address, unsigned short port) const noexcept { Connect(address.c_str(), port); }
+	void Socket::Connect(const std::string& address, const unsigned short port) const noexcept { Connect(address.c_str(), port); }
 
-	void Socket::Listen(int length) noexcept
+	void Socket::Listen(const int length) const noexcept
 	{
 		SOCKLIB_ASSERT(mSockRef.use_count() >= 1, "Socket is not opened!");
 		SOCKLIB_ASSERT(*mSockRef != INVALID_SOCKET, "The Socket is already closed");
-		int result = listen(*mSockRef, length);
+		const int result = listen(*mSockRef, length);
 		SOCKLIB_ASSERT(result != SOCKET_ERROR, GetError().c_str());
 	}
 
-	std::pair<Socket, std::pair<std::string, unsigned short>> Socket::Accept(void) const noexcept
+	std::pair<Socket, Endpoint> Socket::Accept() const noexcept
 	{
 		SOCKLIB_ASSERT(mSockRef.use_count() >= 1, "Socket is not opened!");
 		SOCKLIB_ASSERT(*mSockRef != INVALID_SOCKET, "The Socket is already closed");
@@ -125,25 +136,26 @@ namespace socklib {
 		unsigned short port = 0;
 		switch (mAF)
 		{
-		case AF_INET:
+		case AddressFamily::IPv4:
 		{
-			char buffer[16];
-			memset(buffer, 0, 16);
+			char buffer[16] = { 0 };
 			sockaddr_in address = { 0 };
 			socklen_t size = sizeof(sockaddr_in);
-			clientSock = Accept((sockaddr*)&address, &size);
+			clientSock = Accept(reinterpret_cast<sockaddr*>(&address), &size);
+			if (HasTimeoutError()) return std::make_pair<Socket, Endpoint>({}, {});
 			inet_ntop(AF_INET, &address.sin_addr, buffer, 16);
 			ip = std::string(buffer);
 			port = ntohs(address.sin_port);
 			break;
 		}
-		case AF_INET6:
+		case AddressFamily::IPv6:
 		{
-			char buffer[46];
-			memset(buffer, 0, 46);
+			char buffer[46] = { 0 };
 			sockaddr_in6 address = { 0 };
 			socklen_t size = sizeof(sockaddr_in6);
-			clientSock = Accept((sockaddr*)&address, &size);
+			clientSock = Accept(reinterpret_cast<sockaddr*>(&address), &size);
+
+			if (HasTimeoutError()) return std::make_pair<Socket, Endpoint>({}, {});
 			inet_ntop(AF_INET6, &address.sin6_addr, buffer, 46);
 			ip = std::string(buffer);
 			port = ntohs(address.sin6_port);
@@ -154,7 +166,7 @@ namespace socklib {
 		}
 
 		clientSock.mAF = mAF;
-		return std::make_pair(clientSock, std::make_pair(ip, port));
+		return std::make_pair(clientSock, Endpoint{ ip, port });
 	}
 
 	Socket Socket::Accept(sockaddr* address, socklen_t* size) const noexcept
@@ -164,52 +176,56 @@ namespace socklib {
 
 		Socket client{};
 		client.mSockRef = std::make_shared<SOCKET>(accept(*mSockRef, address, size));
-		//SOCKLIB_ASSERT(*client.mSockRef != INVALID_SOCKET, GetError().c_str());
+
+		if (HasTimeoutError()) return{};
+		SOCKLIB_ASSERT(*client.mSockRef != INVALID_SOCKET, GetError().c_str());
 		client.mAF = mAF;
+
 		return client;
 	}
 
 
-	int Socket::Send(const void* data, size_t length, size_t offset) const noexcept
+	IOSize Socket::Send(const void* data, const size_t length, const size_t offset) const noexcept
 	{
 		SOCKLIB_ASSERT(mSockRef.use_count() >= 1, "Socket is not opened!");
 		SOCKLIB_ASSERT(*mSockRef != INVALID_SOCKET, "The Socket is already closed");
-		char* buffer = (char*)data + offset;
+		const char* buffer = static_cast<const char*>(data) + offset;
 
-		int bytes = send(*mSockRef, buffer, length, 0);
+		const IOSize bytes = send(*mSockRef, buffer, length, 0);
 
-		//SOCKLIB_ASSERT(bytes > -1, GetError().c_str());
+		if (HasTimeoutError()) return -1;
+		SOCKLIB_ASSERT(bytes != -1, GetError().c_str());
 		return bytes;
 	}
 
-	int Socket::SendTo(const void* data, const sockaddr* address, socklen_t addressSize, size_t length, size_t offset) const noexcept
+	IOSize Socket::SendTo(const void* data, const sockaddr* address, const socklen_t addressSize, const size_t length, const size_t offset) const noexcept
 	{
 		SOCKLIB_ASSERT(mSockRef.use_count() >= 1, "Socket is not opened!");
 		SOCKLIB_ASSERT(*mSockRef != INVALID_SOCKET, "The Socket is already closed");
-		SOCKLIB_ASSERT(mAF == address->sa_family, "Socket hasn't opened with same address Family!");
-		char* buffer = (char*)data + offset;
+		SOCKLIB_ASSERT(mAF == static_cast<AddressFamily>(address->sa_family), "Socket hasn't opened with same address Family!");
+		const char* buffer = static_cast<const char *>(data) + offset;
 
-		int bytes = sendto(*mSockRef, buffer, length, 0, address, addressSize);
+		const IOSize bytes = sendto(*mSockRef, buffer, length, 0, address, addressSize);
 
-		//SOCKLIB_ASSERT(bytes > -1, GetError().c_str());
+		SOCKLIB_ASSERT(bytes != -1, GetError().c_str());
 		return bytes;
 	}
 
-	int Socket::SendTo(const void* data, const Endpoint& endpoint, size_t length, size_t offset) const noexcept
+	IOSize Socket::SendTo(const void* data, const Endpoint& endpoint, const size_t length, const size_t offset) const noexcept
 	{
 		switch (mAF)
 		{
-		case AF_INET:
+		case AddressFamily::IPv4:
 		{
 			sockaddr_in address = { 0 };
-			CreateAddress(endpoint.Host, endpoint.Port, address);
-			return SendTo(data, (sockaddr*)&address, sizeof(sockaddr_in), length, offset);
+			CreateAddress(endpoint.Host.c_str(), endpoint.Port, address);
+			return SendTo(data, reinterpret_cast<sockaddr*>(&address), sizeof(sockaddr_in), length, offset);
 		}
-		case AF_INET6:
+		case AddressFamily::IPv6:
 		{
 			sockaddr_in6 address = { 0 };
-			CreateAddress(endpoint.Host, endpoint.Port, address);
-			return SendTo(data, (sockaddr*)&address, sizeof(sockaddr_in6), length, offset);
+			CreateAddress(endpoint.Host.c_str(), endpoint.Port, address);
+			return SendTo(data, reinterpret_cast<sockaddr*>(&address), sizeof(sockaddr_in6), length, offset);
 		}
 		default:
 			SOCKLIB_ASSERT(false, "Not supported address family!");
@@ -217,68 +233,72 @@ namespace socklib {
 		}
 	}
 
-	int Socket::Receive(void* data, size_t length, size_t offset) const noexcept
+	IOSize Socket::Receive(void* data, const size_t length, const size_t offset) const noexcept
 	{
 		SOCKLIB_ASSERT(mSockRef.use_count() >= 1, "Socket is not opened!");
 		SOCKLIB_ASSERT(*mSockRef != INVALID_SOCKET, "The Socket is already closed");
-		char* buffer = (char*)data + offset;
+		char* buffer = static_cast<char*>(data) + offset;
 
-		int bytes = recv(*mSockRef, buffer, length, 0);
+		const IOSize bytes = recv(*mSockRef, buffer, length, 0);
 
-		//SOCKLIB_ASSERT(bytes > -1, GetError().c_str());
+		if (HasTimeoutError()) return -1;
+		SOCKLIB_ASSERT(bytes != -1, GetError().c_str());
 		return bytes;
 	}
 
-	int Socket::ReceiveFrom(void* data, sockaddr* address, socklen_t* addressSize, size_t length, size_t offset) const noexcept
+	IOSize Socket::ReceiveFrom(void* data, sockaddr* address, socklen_t* addressSize, const size_t length, const size_t offset) const noexcept
 	{
 		SOCKLIB_ASSERT(mSockRef.use_count() >= 1, "Socket is not opened!");
 		SOCKLIB_ASSERT(*mSockRef != INVALID_SOCKET, "The Socket is already closed");
 
-		char* buffer = (char*)data + offset;
+		char* buffer = static_cast<char *>(data) + offset;
 
-		int bytes = recvfrom(*mSockRef, buffer, length, 0, address, addressSize);
-		//SOCKLIB_ASSERT(bytes > -1, GetError().c_str());
+		const IOSize bytes = recvfrom(*mSockRef, buffer, length, 0, address, addressSize);
+
+		if (bytes == -1 && HasTimeoutError()) return -1;
+		SOCKLIB_ASSERT(bytes != -1, GetError().c_str());
 		return bytes;
 	}
 
-	std::pair<int, std::pair<std::string, unsigned short>> Socket::ReceiveFrom(void* data, size_t length, size_t offset) const noexcept
+	std::pair<IOSize, Endpoint> Socket::ReceiveFrom(void* data, const size_t length, const size_t offset) const noexcept
 	{
-		//TODO(Vasilis): Depending on if we have assertion in low level function or not we may
-		//	have to check bytes return value
 		std::string ip;
 		unsigned short port = 0;
-		int bytes = SOCKET_ERROR;
+		IOSize bytes = SOCKET_ERROR;
 		switch (mAF)
 		{
-		case AF_INET:
-		{
-			char buffer[16];
-			memset(buffer, 0, 16);
-			sockaddr_in address = { 0 };
-			socklen_t addressSize = sizeof(sockaddr_in);
-			bytes = ReceiveFrom(data, (sockaddr*)&address, &addressSize, length, offset);
-			inet_ntop(AF_INET, &address.sin_addr, buffer, 16);
-			ip = std::string(buffer);
-			port = ntohs(address.sin_port);
-			break;
+			case AddressFamily::IPv4:
+			{
+				char buffer[16] = { 0 };
+				sockaddr_in address = { 0 };
+				socklen_t addressSize = sizeof(sockaddr_in);
+				bytes = ReceiveFrom(data, reinterpret_cast<sockaddr*>(&address), &addressSize, length, offset);
+
+				if (bytes == -1 && HasTimeoutError()) return std::make_pair(-1, Endpoint{});
+				inet_ntop(AF_INET, &address.sin_addr, buffer, 16);
+				ip = std::string(buffer);
+				port = ntohs(address.sin_port);
+				break;
+			}
+			case AddressFamily::IPv6:
+			{
+				char buffer[46] = { 0 };
+				sockaddr_in6 address = { 0 };
+				socklen_t addressSize = sizeof(sockaddr_in6);
+				bytes = ReceiveFrom(data, reinterpret_cast<sockaddr*>(&address), &addressSize, length, offset);
+
+				if (bytes == -1 && HasTimeoutError()) return std::make_pair(-1, Endpoint{});
+				SOCKLIB_ASSERT(bytes != -1, GetError().c_str());
+				inet_ntop(AF_INET6, &address.sin6_addr, buffer, 46);
+				ip = std::string(buffer);
+				port = ntohs(address.sin6_port);
+				break;
+			}
+			default:
+				SOCKLIB_ASSERT(false, "Not supported address family!");
+			return std::make_pair(SOCKET_ERROR, Endpoint {"", 0 });//Not suppose to be reached
 		}
-		case AF_INET6:
-		{
-			char buffer[46];
-			memset(buffer, 0, 46);
-			sockaddr_in6 address = { 0 };
-			socklen_t addressSize = sizeof(sockaddr_in6);
-			bytes = ReceiveFrom(data, (sockaddr*)&address, &addressSize, length, offset);
-			inet_ntop(AF_INET6, &address.sin6_addr, buffer, 46);
-			ip = std::string(buffer);
-			port = ntohs(address.sin6_port);
-			break;
-		}
-		default:
-			SOCKLIB_ASSERT(false, "Not supported address family!");
-			return std::make_pair(SOCKET_ERROR, std::make_pair("", 0));//Not suppose to be reached
-		}
-		return std::make_pair(bytes, std::make_pair(ip, port));
+		return std::make_pair(bytes, Endpoint{ ip, port });
 	}
 
 	Socket::Socket(Socket&& other) noexcept
@@ -287,7 +307,7 @@ namespace socklib {
 		mBlockMode = other.mBlockMode;
 
 		mSockRef = std::move(other.mSockRef);
-		other.mAF = AF_UNSPEC;
+		other.mAF = AddressFamily::UNSPECIFIED;
 		other.mBlockMode = true;
 	}
 
@@ -302,20 +322,20 @@ namespace socklib {
 		mBlockMode = rhs.mBlockMode;
 
 		mSockRef = std::move(rhs.mSockRef);
-		rhs.mAF = AF_UNSPEC;
+		rhs.mAF = AddressFamily::UNSPECIFIED;
 		rhs.mBlockMode = true;
 		return *this;
 	}
 
-	Socket::~Socket(void) noexcept
+	Socket::~Socket() noexcept
 	{
 		if ((mSockRef.use_count() == 1) && (*mSockRef != INVALID_SOCKET))
 			Close();
 	}
 
-	Socket Socket::CreateConnection(int family, const Endpoint& endpoint, uint64_t timeout, const Endpoint& local) noexcept
+	Socket Socket::CreateConnection(const AddressFamily family, const Endpoint& endpoint, const uint64_t timeout, const Endpoint& local) noexcept
 	{
-		Socket client(family, SOCK_STREAM, IPPROTO_TCP);
+		Socket client(family, SocketType::STREAM, IPPROTO_TCP);
 		client.Bind(local.Host, local.Port);
 		if(timeout > 0)
 			client.SetTimeout(timeout);
@@ -327,14 +347,9 @@ namespace socklib {
 	// | Bellow from here the implementation differ depending on the Platform |
 	// ************************************************************************
 
-	Socket Socket::CreateServer(int family, const Endpoint& endpoint, int queue) noexcept
+	Socket Socket::CreateServer(const AddressFamily family, const Endpoint& endpoint, const int queue) noexcept
 	{
-		Socket server(family, SOCK_STREAM, IPPROTO_TCP);
-	#ifndef PLATFORM_WINDOWS
-		int val = 1;
-		int result = setsockopt(server.Fileno(), SOL_SOCKET, SO_REUSEADDR, &val, sizeof(int));
-		SOCKLIB_ASSERT(result != SOCKET_ERROR, "Failed to set SO_REUSEADDR!");
-	#endif
+		Socket server(family, SocketType::STREAM, IPPROTO_TCP);
 		server.Bind(endpoint.Host, endpoint.Port);
 		server.Listen(queue);
 		return server;
@@ -358,7 +373,7 @@ namespace socklib {
 		mBlockMode = flag;
 	}
 
-	void Socket::SetTimeout(uint64_t milis) noexcept
+	void Socket::SetTimeout(const uint64_t millis) const noexcept
 	{
 		SOCKLIB_ASSERT(mSockRef.use_count() >= 1, "Socket is not opened!");
 		SOCKLIB_ASSERT(*mSockRef != INVALID_SOCKET, "The Socket is already closed");
@@ -369,8 +384,9 @@ namespace socklib {
 		result = setsockopt(*mSockRef, SOL_SOCKET, SO_RCVTIMEO, (char*)&milis, sizeof(uint64_t));
 		SOCKLIB_ASSERT(result != SOCKET_ERROR, GetError().c_str());
 	#else
-		timeval timeout;
-		timeout.tv_usec = milis * 1000.0f;
+		timeval timeout{};
+		timeout.tv_sec = static_cast<long>(millis) / 1000;
+		timeout.tv_usec = (static_cast<long>(millis) % 1000)* 1000;
 		result = setsockopt(*mSockRef, SOL_SOCKET, SO_SNDTIMEO, (char*)&timeout, sizeof(timeval));
 		SOCKLIB_ASSERT(result != SOCKET_ERROR, GetError().c_str());
 		result = setsockopt(*mSockRef, SOL_SOCKET, SO_RCVTIMEO, (char*)&timeout, sizeof(timeval));
@@ -378,7 +394,7 @@ namespace socklib {
 	#endif
 	}
 
-	SOCKET Socket::Fileno(void) const noexcept { return mSockRef.use_count() == 0 ? INVALID_SOCKET : *mSockRef; }
+	SOCKET Socket::FileNo() const noexcept { return mSockRef.use_count() == 0 ? INVALID_SOCKET : *mSockRef; }
 
 }
 
@@ -386,21 +402,21 @@ namespace socklib {
 // | Helper functions |
 // ********************
 
-void CreateAddress(const char* address, unsigned short port, sockaddr_in& sockAddress) noexcept
+void CreateAddress(const char* address, const unsigned short port, sockaddr_in& sockAddress) noexcept
 {
 	sockAddress.sin_family = AF_INET;
 	sockAddress.sin_port = htons(port);
-	if (address != NULL)
+	if (address != nullptr)
 		inet_pton(AF_INET, address, &sockAddress.sin_addr);
 	else
 		sockAddress.sin_addr.s_addr = INADDR_ANY;
 }
 
-void CreateAddress(const char* address, unsigned short port, sockaddr_in6& sockAddress) noexcept
+void CreateAddress(const char* address, const unsigned short port, sockaddr_in6& sockAddress) noexcept
 {
 	sockAddress.sin6_family = AF_INET6;
 	sockAddress.sin6_port = htons(port);
-	if (address != NULL)
+	if (address != nullptr)
 		inet_pton(AF_INET6, address, &sockAddress.sin6_addr);
 	else
 		sockAddress.sin6_addr = in6addr_any;
@@ -426,10 +442,28 @@ void CreateAddress(const char* address, unsigned short port, sockaddr_in6& sockA
 			rdata = std::string("Unknown error!");
 		return rdata;
 	}
-#else//Unix like platforms
-	#include <string.h>
-	std::string GetError(void) noexcept
+
+	bool HasTimeoutError() noexcept
 	{
-		return std::string(strerror(errno));
+		const int err = WSAGetLastError();
+		if (err == WSAEWOULDBLOCK || err == WSAETIMEDOUT)
+			return true;
+		WSASetLastError(err);
+		return false;
+	}
+#else//Unix like platforms
+	std::string GetError() noexcept
+	{
+		const int err = errno;
+		return { strerror(err) };
+	}
+
+	bool HasTimeoutError() noexcept
+	{
+		const int err = errno;
+		if (err == EAGAIN || err == ETIMEDOUT)
+			return true;
+		errno = err;
+		return false;
 	}
 #endif
